@@ -1,0 +1,2 @@
+# Forensic-WhisperDeskZH-Word-Add-In
+Der Forensic WhisperDeskZH ist ein Add-In für Microsoft Word, das die Transkription von Sprache in Text in Echtzeit ermöglicht. Es verwendet fortschrittliche KI-Modelle (Whisper), um Ihre gesprochenen Worte direkt als Text in Word-Dokumenten einzufügen.
