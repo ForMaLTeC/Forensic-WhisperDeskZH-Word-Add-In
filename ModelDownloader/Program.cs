@@ -52,7 +52,7 @@ namespace ModelDownloader
                     Console.WriteLine();
 
                     var downloader = new ModelDownloaderService();
-                    await downloader.DownloadModelsAsync(models, target, force);
+                    await downloader.DownloadModelsAsync(processedModels, target, force);
 
                     Console.WriteLine();
                     Console.WriteLine("Model download process completed successfully!");
