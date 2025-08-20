@@ -1,6 +1,7 @@
 ﻿using System;
 using System.CommandLine;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Whisper.net.Ggml;
 
@@ -37,6 +38,13 @@ namespace ModelDownloader
             {
                 try
                 {
+                    var processedModels = models
+                        .SelectMany(m => m.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                        .Select(m => m.Trim())
+                        .Where(m => !string.IsNullOrEmpty(m))
+                        .Distinct()
+                        .ToArray();
+
                     Console.WriteLine("=== Whisper Model Downloader ===");
                     Console.WriteLine($"Target Directory: {target}");
                     Console.WriteLine($"Models to Download: {string.Join(", ", models)}");
@@ -47,11 +55,11 @@ namespace ModelDownloader
                     await downloader.DownloadModelsAsync(models, target, force);
 
                     Console.WriteLine();
-                    Console.WriteLine("✅ Model download process completed successfully!");
+                    Console.WriteLine("Model download process completed successfully!");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"❌ Error: {ex.Message}");
+                    Console.WriteLine($"Error: {ex.Message}");
                     Environment.Exit(1);
                 }
             }, modelsOption, targetOption, forceOption);
@@ -73,7 +81,7 @@ namespace ModelDownloader
         {
             // Ensure target directory exists
             Directory.CreateDirectory(targetDirectory);
-            Console.WriteLine($"📁 Created/verified target directory: {Path.GetFullPath(targetDirectory)}");
+            Console.WriteLine($"Created/verified target directory: {Path.GetFullPath(targetDirectory)}");
 
             foreach (string modelType in modelTypes)
             {
