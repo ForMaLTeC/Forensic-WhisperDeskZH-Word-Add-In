@@ -139,25 +139,44 @@ jobs:
         CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE }}
         CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
       run: |
+        Write-Host "=== Certificate Setup Process ==="
+        Write-Host "Current branch: ${{ github.ref }}"
+        Write-Host "Certificate secret available: $($env:CERTIFICATE_BASE64 -ne $null)"
+        
         if ($env:CERTIFICATE_BASE64) {
-          $certBytes = [Convert]::FromBase64String($env:CERTIFICATE_BASE64)
-          [IO.File]::WriteAllBytes("$env:GITHUB_WORKSPACE\certificate.pfx", $certBytes)
-          echo "CERT_PATH=$env:GITHUB_WORKSPACE\certificate.pfx" >> $env:GITHUB_ENV
-          echo "Certificate prepared for signing"
+          Write-Host "🔐 Using provided signing certificate..."
+          try {
+            $certBytes = [Convert]::FromBase64String($env:CERTIFICATE_BASE64)
+            $certPath = "$env:GITHUB_WORKSPACE\certificate.pfx"
+            [IO.File]::WriteAllBytes($certPath, $certBytes)
+            echo "CERT_PATH=$certPath" >> $env:GITHUB_ENV
+            Write-Host "✅ Certificate prepared for signing at: $certPath"
+          } catch {
+            Write-Host "❌ Failed to prepare certificate: $($_.Exception.Message)"
+            Write-Host "🔄 Will create self-signed certificate instead..."
+            echo "CREATE_SELF_SIGNED=true" >> $env:GITHUB_ENV
+          }
         } else {
-          echo "No certificate provided - will create self-signed certificate"
+          Write-Host "⚠️  No certificate provided - will create self-signed certificate"
+          echo "CREATE_SELF_SIGNED=true" >> $env:GITHUB_ENV
         }
         
-    - name: Create Self-Signed Certificate (for testing)
-      if: env.CERT_PATH == '' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) || github.ref == 'refs/heads/pipelinesetup'
+    - name: Create Self-Signed Certificate
+      if: env.CREATE_SELF_SIGNED == 'true' || env.CERT_PATH == ''
       run: |
-        $cert = New-SelfSignedCertificate -Subject "CN=ForensicWhisperDeskZH" -CertStoreLocation "Cert:\CurrentUser\My" -KeyUsage DigitalSignature -Type CodeSigning
-        $certPath = "$env:GITHUB_WORKSPACE\selfsigned.pfx"
-        $password = ConvertTo-SecureString "password" -AsPlainText -Force
-        Export-PfxCertificate -Cert $cert -FilePath $certPath -Password $password
-        echo "CERT_PATH=$certPath" >> $env:GITHUB_ENV
-        echo "CERT_PASSWORD=password" >> $env:GITHUB_ENV
-        echo "Self-signed certificate created"
+        Write-Host "🔨 Creating self-signed certificate for development/testing..."
+        try {
+          $cert = New-SelfSignedCertificate -Subject "CN=ForensicWhisperDeskZH" -CertStoreLocation "Cert:\CurrentUser\My" -KeyUsage DigitalSignature -Type CodeSigning
+          $certPath = "$env:GITHUB_WORKSPACE\selfsigned.pfx"
+          $password = ConvertTo-SecureString "password" -AsPlainText -Force
+          Export-PfxCertificate -Cert $cert -FilePath $certPath -Password $password
+          echo "CERT_PATH=$certPath" >> $env:GITHUB_ENV
+          echo "CERT_PASSWORD=password" >> $env:GITHUB_ENV
+          Write-Host "✅ Self-signed certificate created at: $certPath"
+        } catch {
+          Write-Host "❌ Failed to create self-signed certificate: $($_.Exception.Message)"
+          Write-Host "⚠️  Build will continue without signing"
+        }
       
     - name: Update Assembly Version
       run: |
@@ -173,27 +192,59 @@ jobs:
         
     - name: Build Solution
       run: |
-        msbuild ${{ env.SOLUTION_PATH }} `
-          /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
-          /p:Platform="${{ env.BUILD_PLATFORM }}" `
-          /p:PublishUrl="${{ env.PUBLISH_URL }}" `
-          /p:InstallUrl="${{ env.PUBLISH_URL }}" `
-          /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" `
-          /p:PublishWizardShown=false `
-          /p:PublishWizardCompleted=true `
-          /p:IsWebBootstrapper=true `
-          /p:BootstrapperEnabled=true `
-          /p:UpdateEnabled=true `
-          /p:UpdateMode=Foreground `
-          /p:UpdateInterval=7 `
-          /p:UpdateIntervalUnits=days `
-          /p:UpdateRequired=false `
-          /p:MapFileExtensions=true `
-          /p:ApplicationRevision=0 `
-          /p:UseApplicationTrust=false `
-          /p:CreateDesktopShortcut=true `
-          /p:ExcludeDeploymentUrl=false `
-          /verbosity:normal
+        Write-Host "=== Building Solution ==="
+        Write-Host "Certificate available: $(Test-Path $env:CERT_PATH)"
+        
+        # Build parameters
+        $buildParams = @(
+          "${{ env.SOLUTION_PATH }}",
+          "/p:Configuration=${{ env.BUILD_CONFIGURATION }}",
+          "/p:Platform=${{ env.BUILD_PLATFORM }}",
+          "/p:PublishUrl=${{ env.PUBLISH_URL }}",
+          "/p:InstallUrl=${{ env.PUBLISH_URL }}",
+          "/p:ApplicationVersion=${{ steps.gitversion.outputs.assemblySemVer }}",
+          "/p:PublishWizardShown=false",
+          "/p:PublishWizardCompleted=true",
+          "/p:IsWebBootstrapper=true",
+          "/p:BootstrapperEnabled=true",
+          "/p:UpdateEnabled=true",
+          "/p:UpdateMode=Foreground",
+          "/p:UpdateInterval=7",
+          "/p:UpdateIntervalUnits=days",
+          "/p:UpdateRequired=false",
+          "/p:MapFileExtensions=true",
+          "/p:ApplicationRevision=0",
+          "/p:UseApplicationTrust=false",
+          "/p:CreateDesktopShortcut=true",
+          "/p:ExcludeDeploymentUrl=false",
+          "/verbosity:normal"
+        )
+        
+        # Add signing parameters if certificate is available
+        if ($env:CERT_PATH -and (Test-Path $env:CERT_PATH)) {
+          $buildParams += "/p:SignManifests=true"
+          $buildParams += "/p:ManifestKeyFile=$env:CERT_PATH"
+          if ($env:CERT_PASSWORD) {
+            $buildParams += "/p:ManifestCertificatePassword=$env:CERT_PASSWORD"
+          }
+          Write-Host "✅ Signing enabled with certificate: $env:CERT_PATH"
+        } else {
+          $buildParams += "/p:SignManifests=false"
+          Write-Host "⚠️  Signing disabled - no certificate available"
+        }
+        
+        # Execute build
+        Write-Host "🔨 Starting build with parameters:"
+        $buildParams | ForEach-Object { Write-Host "   $_" }
+        
+        & msbuild @buildParams
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "❌ Build failed with exit code $LASTEXITCODE"
+          exit $LASTEXITCODE
+        } else {
+          Write-Host "✅ Build completed successfully"
+        }
           
     - name: Include Additional Files
       run: |
