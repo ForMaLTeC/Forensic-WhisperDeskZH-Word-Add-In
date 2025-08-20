@@ -162,7 +162,7 @@ jobs:
         }
         
     - name: Create Self-Signed Certificate
-      if: env.CREATE_SELF_SIGNED == 'true' || env.CERT_PATH == ''
+      
       run: |
         Write-Host "🔨 Creating self-signed certificate for development/testing..."
         try {
