@@ -14,6 +14,8 @@ env:
   BUILD_PLATFORM: 'Any CPU'
   PUBLISH_URL: 'https://your-domain.com/vsto/'
   APPLICATION_NAME: 'ForensicWhisperDeskZH'
+  # Define which models to download for production
+  WHISPER_MODELS: 'base,large'
 
 jobs:
   build-and-publish:
@@ -42,6 +44,80 @@ jobs:
       with:
         nuget-version: 'latest'
         
+    - name: Restore NuGet packages
+      run: nuget restore ${{ env.SOLUTION_PATH }}
+      
+    # NEW: Download Whisper Models for Build
+    - name: Download Whisper Models
+      run: |
+        Write-Host "Starting Whisper model download process..."
+        
+        # Create Models directory in the project
+        $modelsDir = "ForensicWhisperDeskZH\Models"
+        New-Item -ItemType Directory -Force -Path $modelsDir
+        Write-Host "Created models directory: $modelsDir"
+        
+        # Parse the models from environment variable
+        $models = "${{ env.WHISPER_MODELS }}" -split ","
+        Write-Host "Models to download: $($models -join ', ')"
+        
+        # Download each model using direct HTTP download
+        $baseUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main"
+        
+        foreach ($model in $models) {
+          $model = $model.Trim()
+          $fileName = "ggml-$model.bin"
+          $filePath = "$modelsDir\$fileName"
+          $downloadUrl = "$baseUrl/$fileName"
+          
+          Write-Host "Checking if $fileName already exists..."
+          if (Test-Path $filePath) {
+            $fileSize = (Get-Item $filePath).Length / 1MB
+            Write-Host "Model $model already exists ($([math]::Round($fileSize, 1)) MB) - skipping download"
+            continue
+          }
+          
+          Write-Host "Downloading $model model from $downloadUrl..."
+          try {
+            # Download with progress indication
+            $webClient = New-Object System.Net.WebClient
+            $webClient.DownloadFile($downloadUrl, $filePath)
+            
+            # Verify download
+            if (Test-Path $filePath) {
+              $fileSize = (Get-Item $filePath).Length / 1MB
+              Write-Host "Successfully downloaded $model model ($([math]::Round($fileSize, 1)) MB)"
+            } else {
+              throw "File was not created after download"
+            }
+          } catch {
+            Write-Host "Failed to download $model model: $($_.Exception.Message)"
+            Write-Host "Attempting alternative download method..."
+            
+            # Fallback: Use Invoke-WebRequest
+            try {
+              Invoke-WebRequest -Uri $downloadUrl -OutFile $filePath -UseBasicParsing
+              $fileSize = (Get-Item $filePath).Length / 1MB
+              Write-Host "Successfully downloaded $model model using fallback method ($([math]::Round($fileSize, 1)) MB)"
+            } catch {
+              Write-Host "Critical error: Failed to download $model model using both methods"
+              Write-Host "Error: $($_.Exception.Message)"
+              exit 1
+            }
+          }
+        }
+        
+        # List downloaded models for verification
+        Write-Host "Verifying downloaded models:"
+        if (Test-Path $modelsDir) {
+          Get-ChildItem -Path $modelsDir -Filter "*.bin" | ForEach-Object {
+            $sizeInMB = $_.Length / 1MB
+            Write-Host "  $($_.Name) - $([math]::Round($sizeInMB, 1)) MB"
+          }
+        }
+        
+        Write-Host "Whisper model download process completed successfully!"
+        
     - name: Setup Certificate for Signing
       if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
       env:
@@ -67,9 +143,6 @@ jobs:
         echo "CERT_PATH=$certPath" >> $env:GITHUB_ENV
         echo "CERT_PASSWORD=password" >> $env:GITHUB_ENV
         echo "Self-signed certificate created"
-        
-    - name: Restore NuGet packages
-      run: nuget restore ${{ env.SOLUTION_PATH }}
       
     - name: Update Assembly Version
       run: |
@@ -111,19 +184,30 @@ jobs:
       run: |
         $outputDir = "ForensicWhisperDeskZH\bin\${{ env.BUILD_CONFIGURATION }}"
         
+        # Copy Keywords.xml
         if (Test-Path "ForensicWhisperDeskZH\Keywords.xml") {
           Copy-Item "ForensicWhisperDeskZH\Keywords.xml" "$outputDir\" -Force
+          Write-Host "Copied Keywords.xml to output directory"
         }
         
-        if (Test-Path "ForensicWhisperDeskZH\Models") {
-          $modelsDir = "$outputDir\Models"
-          New-Item -ItemType Directory -Force -Path $modelsDir
-          Copy-Item "ForensicWhisperDeskZH\Models\*.bin" $modelsDir -Force -ErrorAction SilentlyContinue
+        # Copy downloaded Whisper models
+        $sourceModelsDir = "ForensicWhisperDeskZH\Models"
+        if (Test-Path $sourceModelsDir) {
+          $targetModelsDir = "$outputDir\Models"
+          New-Item -ItemType Directory -Force -Path $targetModelsDir
+          
+          Get-ChildItem -Path $sourceModelsDir -Filter "*.bin" | ForEach-Object {
+            Copy-Item $_.FullName $targetModelsDir -Force
+            $sizeInMB = $_.Length / 1MB
+            Write-Host "Copied $($_.Name) ($([math]::Round($sizeInMB, 1)) MB) to output directory"
+          }
         }
         
+        # Copy Whisper.net runtime dependencies
         $runtimesPath = "packages\Whisper.net.*\runtimes"
         if (Test-Path $runtimesPath) {
           Copy-Item $runtimesPath "$outputDir\" -Recurse -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied Whisper.net runtime dependencies"
         }
         
     - name: Publish VSTO Application
@@ -196,6 +280,16 @@ jobs:
           Copy-Item "$buildOutput\*" "deployment\bin\" -Recurse -Force
         }
         
+        # Verify models are included in deployment
+        $deploymentModels = "deployment\bin\Models"
+        if (Test-Path $deploymentModels) {
+          Write-Host "Models included in deployment:"
+          Get-ChildItem -Path $deploymentModels -Filter "*.bin" | ForEach-Object {
+            $sizeInMB = $_.Length / 1MB
+            Write-Host "  $($_.Name) - $([math]::Round($sizeInMB, 1)) MB"
+          }
+        }
+        
         $setupScript = @'
         @echo off
         echo Installing ForensicWhisperDeskZH VSTO Add-in...
@@ -238,12 +332,14 @@ jobs:
         - ForensicWhisperDeskZH.vsto - Main installation file
         - Application files and dependencies
         - Keywords.xml - Configuration file for text processing
+        - Models/ - Whisper AI models for transcription (${{ env.WHISPER_MODELS }} models included)
 
         ## Version Information
 
         Version: $version
         Build Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
         Commit: ${{ github.sha }}
+        Models: ${{ env.WHISPER_MODELS }}
         "@
         $readme | Out-File -FilePath "deployment\README.md" -Encoding UTF8
         
@@ -284,6 +380,10 @@ jobs:
           2. Extract the zip file
           3. Run `Install.bat` as Administrator
           4. Follow the installation prompts
+          
+          ### Included Models
+          
+          This release includes the following Whisper models: ${{ env.WHISPER_MODELS }}
           
           ### Changes
           
