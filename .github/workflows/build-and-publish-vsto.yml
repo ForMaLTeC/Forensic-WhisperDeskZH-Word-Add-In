@@ -67,23 +67,23 @@ jobs:
         # Create Models directory in the main project
         $modelsDir = "ForensicWhisperDeskZH\Models"
         New-Item -ItemType Directory -Force -Path $modelsDir
-        Write-Host "📁 Created models directory: $modelsDir"
+        Write-Host "Created models directory: $modelsDir"
         
         # Parse the models from environment variable - keep as comma-separated
         $modelsString = "${{ env.WHISPER_MODELS }}"
-        Write-Host "📋 Models to download: $modelsString"
+        Write-Host "Models to download: $modelsString"
         
         try {
           # Run the ModelDownloader with proper arguments
           $downloaderPath = "ModelDownloader\bin\Release\net8.0\ModelDownloader.exe"
           
           if (Test-Path $downloaderPath) {
-            Write-Host "🚀 Running ModelDownloader..."
+            Write-Host "Running ModelDownloader..."
             # Pass the comma-separated string directly to --models
             & $downloaderPath --models $modelsString --target $modelsDir
             
             if ($LASTEXITCODE -eq 0) {
-              Write-Host "✅ ModelDownloader completed successfully"
+              Write-Host "ModelDownloader completed successfully"
             } else {
               throw "ModelDownloader failed with exit code $LASTEXITCODE"
             }
@@ -91,8 +91,8 @@ jobs:
             throw "ModelDownloader executable not found at $downloaderPath"
           }
         } catch {
-          Write-Host "❌ ModelDownloader failed: $($_.Exception.Message)"
-          Write-Host "🔄 Falling back to direct download method..."
+          Write-Host "ModelDownloader failed: $($_.Exception.Message)"
+          Write-Host "Falling back to direct download method..."
           
           # Fallback to direct download using correct domain
           $models = "${{ env.WHISPER_MODELS }}" -split ","
@@ -106,7 +106,7 @@ jobs:
             
             if (Test-Path $filePath) {
               $fileSize = (Get-Item $filePath).Length / 1MB
-              Write-Host "⏭️  Model $model already exists ($([math]::Round($fileSize, 1)) MB) - skipping"
+              Write-Host "Model $model already exists ($([math]::Round($fileSize, 1)) MB) - skipping"
               continue
             }
             
@@ -123,18 +123,18 @@ jobs:
         }
         
         # Verify downloaded models
-        Write-Host "📋 Verifying downloaded models:"
+        Write-Host "Verifying downloaded models:"
         if (Test-Path $modelsDir) {
           Get-ChildItem -Path $modelsDir -Filter "*.bin" | ForEach-Object {
             $sizeInMB = $_.Length / 1MB
-            Write-Host "   📄 $($_.Name) - $([math]::Round($sizeInMB, 1)) MB"
+            Write-Host "    $($_.Name) - $([math]::Round($sizeInMB, 1)) MB"
           }
         }
         
-        Write-Host "🎉 Whisper model download process completed successfully!"
+        Write-Host "Whisper model download process completed successfully!"
         
     - name: Setup Certificate for Signing
-      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/pipelinesetup'
       env:
         CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE }}
         CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
