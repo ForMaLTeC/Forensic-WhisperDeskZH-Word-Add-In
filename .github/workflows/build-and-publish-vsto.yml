@@ -149,7 +149,7 @@ jobs:
         }
         
     - name: Create Self-Signed Certificate (for testing)
-      if: env.CERT_PATH == '' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+      if: env.CERT_PATH == '' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) || github.ref == 'refs/heads/pipelinesetup'
       run: |
         $cert = New-SelfSignedCertificate -Subject "CN=ForensicWhisperDeskZH" -CertStoreLocation "Cert:\CurrentUser\My" -KeyUsage DigitalSignature -Type CodeSigning
         $certPath = "$env:GITHUB_WORKSPACE\selfsigned.pfx"
