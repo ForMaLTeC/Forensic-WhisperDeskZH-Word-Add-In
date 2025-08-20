@@ -62,7 +62,7 @@ jobs:
         Write-Host "Models to download: $($models -join ', ')"
         
         # Download each model using direct HTTP download
-        $baseUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main"
+        $baseUrl = "https://huggingface.co/sandrohanea/whisper.net/resolve/v3/classic/"
         
         foreach ($model in $models) {
           $model = $model.Trim()
