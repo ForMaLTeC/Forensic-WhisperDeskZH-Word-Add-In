@@ -2,7 +2,7 @@ name: Build and Publish VSTO Add-in
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, PipelineSetup ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
