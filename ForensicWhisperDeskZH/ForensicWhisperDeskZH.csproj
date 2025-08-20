@@ -1,0 +1,606 @@
+﻿<Project ToolsVersion="17.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <!--
+    This section defines project-level properties.
+
+    AssemblyName
+      Name of the output assembly.
+    Configuration
+      Specifies a default value for debug.
+    OutputType
+      Must be "Library" for VSTO.
+    Platform
+      Specifies what CPU the output of this project can run on.
+    NoStandardLibraries
+      Set to "false" for VSTO.
+    RootNamespace
+      In C#, this specifies the namespace given to new files. In VB, all objects are
+      wrapped in this namespace at runtime.
+  -->
+  <PropertyGroup>
+    <ProjectTypeGuids>{BAA0C2D2-18E2-41B9-852F-F413020CAA33};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{61566C3B-8B0F-4F06-AAE8-D422F06E62C4}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <NoStandardLibraries>false</NoStandardLibraries>
+    <RootNamespace>ForensicWhisperDeskZH</RootNamespace>
+    <AssemblyName>ForensicWhisperDeskZH</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <DefineConstants>VSTO40;UseOfficeInterop</DefineConstants>
+    <ResolveComReferenceSilent>true</ResolveComReferenceSilent>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+    <IsWebBootstrapper>False</IsWebBootstrapper>
+    <TargetFrameworkProfile />
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+    <PublishUrl>publish\</PublishUrl>
+    <InstallUrl />
+    <TargetCulture>en</TargetCulture>
+    <ApplicationVersion>1.0.0.0</ApplicationVersion>
+    <AutoIncrementApplicationRevision>false</AutoIncrementApplicationRevision>
+    <UpdateEnabled>true</UpdateEnabled>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>days</UpdateIntervalUnits>
+    <ProductName>ForensicWhisperDeskZH</ProductName>
+    <PublisherName>ForMalTec</PublisherName>
+    <SupportUrl />
+    <FriendlyName>ForensicWhisperDeskZH</FriendlyName>
+    <OfficeApplicationDescription />
+    <LoadBehavior>3</LoadBehavior>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>8.0</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include=".NETFramework,Version=v4.8">
+      <Visible>False</Visible>
+      <ProductName>Microsoft .NET Framework 4.8 %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Visual.C++.14.0.x64">
+      <Visible>False</Visible>
+      <ProductName>Visual C++ "14" Runtime Libraries %28x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Visual.C++.14.0.x86">
+      <Visible>False</Visible>
+      <ProductName>Visual C++ "14" Runtime Libraries %28x86%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.VSTORuntime.4.0">
+      <Visible>False</Visible>
+      <ProductName>Microsoft Visual Studio 2010 Tools for Office Runtime %28x86 and x64%29</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <PropertyGroup>
+    <!--
+      OfficeApplication
+        Add-in host application
+    -->
+    <OfficeApplication>Word</OfficeApplication>
+  </PropertyGroup>
+  <!--
+    This section defines properties that are set when the "Debug" configuration is selected.
+
+    DebugSymbols
+      If "true", create symbols (.pdb). If "false", do not create symbols.
+    DefineConstants
+      Constants defined for the preprocessor.
+    EnableUnmanagedDebugging
+      If "true", starting the debugger will attach both managed and unmanaged debuggers.
+    Optimize
+      If "true", optimize the build output. If "false", do not optimize.
+    OutputPath
+      Output path of project relative to the project file.
+    WarningLevel
+      Warning level for the compiler.
+  -->
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants>
+    <WarningLevel>5</WarningLevel>
+  </PropertyGroup>
+  <!--
+    This section defines properties that are set when the "Release" configuration is selected.
+
+    DebugSymbols
+      If "true", create symbols (.pdb). If "false", do not create symbols.
+    DefineConstants
+      Constants defined for the preprocessor.
+    EnableUnmanagedDebugging
+      If "true", starting the debugger will attach both managed and unmanaged debuggers.
+    Optimize
+      If "true", optimize the build output. If "false", do not optimize.
+    OutputPath
+      Output path of project relative to the project file.
+    WarningLevel
+      Warning level for the compiler.
+  -->
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <!--
+    This section specifies references for the project.
+  -->
+  <ItemGroup>
+    <Reference Include="Accessibility" />
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=9.0.0.6, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.9.0.6\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Win32.Registry, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Win32.Registry.5.0.0\lib\net461\Microsoft.Win32.Registry.dll</HintPath>
+    </Reference>
+    <Reference Include="NAudio, Version=2.2.1.0, Culture=neutral, PublicKeyToken=e279aa5131008a41, processorArchitecture=MSIL">
+      <HintPath>..\packages\NAudio.2.2.1\lib\net472\NAudio.dll</HintPath>
+    </Reference>
+    <Reference Include="NAudio.Asio, Version=2.2.1.0, Culture=neutral, PublicKeyToken=e279aa5131008a41, processorArchitecture=MSIL">
+      <HintPath>..\packages\NAudio.Asio.2.2.1\lib\netstandard2.0\NAudio.Asio.dll</HintPath>
+    </Reference>
+    <Reference Include="NAudio.Core, Version=2.2.1.0, Culture=neutral, PublicKeyToken=e279aa5131008a41, processorArchitecture=MSIL">
+      <HintPath>..\packages\NAudio.Core.2.2.1\lib\netstandard2.0\NAudio.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="NAudio.Midi, Version=2.2.1.0, Culture=neutral, PublicKeyToken=e279aa5131008a41, processorArchitecture=MSIL">
+      <HintPath>..\packages\NAudio.Midi.2.2.1\lib\netstandard2.0\NAudio.Midi.dll</HintPath>
+    </Reference>
+    <Reference Include="NAudio.Wasapi, Version=2.2.1.0, Culture=neutral, PublicKeyToken=e279aa5131008a41, processorArchitecture=MSIL">
+      <HintPath>..\packages\NAudio.Wasapi.2.2.1\lib\netstandard2.0\NAudio.Wasapi.dll</HintPath>
+    </Reference>
+    <Reference Include="NAudio.WinForms, Version=2.2.1.0, Culture=neutral, PublicKeyToken=e279aa5131008a41, processorArchitecture=MSIL">
+      <HintPath>..\packages\NAudio.WinForms.2.2.1\lib\net472\NAudio.WinForms.dll</HintPath>
+    </Reference>
+    <Reference Include="NAudio.WinMM, Version=2.2.1.0, Culture=neutral, PublicKeyToken=e279aa5131008a41, processorArchitecture=MSIL">
+      <HintPath>..\packages\NAudio.WinMM.2.2.1\lib\netstandard2.0\NAudio.WinMM.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="PresentationFramework" />
+    <Reference Include="System" />
+    <Reference Include="System.Buffers, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Buffers.4.6.1\lib\net462\System.Buffers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.4.3.0\lib\net462\System.IO.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.IO.Compression, Version=4.1.2.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Compression.4.3.0\lib\net46\System.IO.Compression.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Memory.4.6.3\lib\net462\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Net.Http, Version=4.1.1.3, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Net.Http.4.3.4\lib\net46\System.Net.Http.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.6.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Numerics.Vectors.4.6.1\lib\net462\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime, Version=4.1.1.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.4.3.1\lib\net462\System.Runtime.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.3.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.6.1.2\lib\net462\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.AccessControl, Version=6.0.0.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.AccessControl.6.0.1\lib\net461\System.Security.AccessControl.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.Algorithms, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Algorithms.4.3.1\lib\net463\System.Security.Cryptography.Algorithms.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.Encoding, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Encoding.4.3.0\lib\net46\System.Security.Cryptography.Encoding.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.Primitives, Version=4.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.Primitives.4.3.0\lib\net46\System.Security.Cryptography.Primitives.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Security.Cryptography.X509Certificates, Version=4.1.1.2, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Cryptography.X509Certificates.4.3.2\lib\net461\System.Security.Cryptography.X509Certificates.dll</HintPath>
+      <Private>True</Private>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Security.Principal.Windows, Version=5.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Security.Principal.Windows.5.0.0\lib\net461\System.Security.Principal.Windows.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.4.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Threading.Tasks.Extensions.4.6.3\lib\net462\System.Threading.Tasks.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="WebRtcVadSharp, Version=1.3.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\WebRtcVadSharp.1.3.2\lib\netstandard2.0\WebRtcVadSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Whisper.net, Version=1.8.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Whisper.net.1.8.1\lib\netstandard2.0\Whisper.net.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(NuGetPackageRoot)whisper.net.runtime\**\runtimes\**\*.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.Office.Tools.v4.0.Framework, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.VisualStudio.Tools.Applications.Runtime, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Office.Tools, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Office.Tools.Common, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Microsoft.Office.Tools.Word, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.Office.Tools.Common.v4.0.Utilities, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+  <Choose>
+    <When Condition="$([System.String]::Copy(&quot;;$(DefineConstants);&quot;).ToLower().Contains(';useofficeinterop;')) or $([System.String]::Copy(&quot;,$(DefineConstants),&quot;).ToLower().Contains(',useofficeinterop,'))">
+      <ItemGroup>
+        <Reference Include="Office, Version=15.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c">
+          <Private>False</Private>
+          <EmbedInteropTypes>true</EmbedInteropTypes>
+        </Reference>
+        <Reference Include="Microsoft.Office.Interop.Word, Version=15.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c">
+          <Private>False</Private>
+          <EmbedInteropTypes>true</EmbedInteropTypes>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <COMReference Include="Microsoft.Office.Core">
+          <Guid>{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}</Guid>
+          <VersionMajor>2</VersionMajor>
+          <VersionMinor>7</VersionMinor>
+          <Lcid>0</Lcid>
+          <WrapperTool>tlbimp</WrapperTool>
+          <Isolated>False</Isolated>
+          <EmbedInteropTypes>true</EmbedInteropTypes>
+        </COMReference>
+        <COMReference Include="Microsoft.Office.Interop.Word">
+          <Guid>{00020905-0000-0000-C000-000000000046}</Guid>
+          <VersionMajor>8</VersionMajor>
+          <VersionMinor>6</VersionMinor>
+          <Lcid>0</Lcid>
+          <WrapperTool>tlbimp</WrapperTool>
+          <Isolated>False</Isolated>
+          <EmbedInteropTypes>true</EmbedInteropTypes>
+        </COMReference>
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
+  <ItemGroup>
+    <Reference Include="stdole, Version=7.0.3300.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+  <PropertyGroup>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <PublishNativeLibraries>true</PublishNativeLibraries>
+  </PropertyGroup>
+  <!--
+    This section defines the user source files that are part of the project.
+     
+    A "Compile" element specifies a source file to compile.
+    An "EmbeddedResource" element specifies an .resx file for embedded resources.
+    A "None" element specifies a file that is not to be passed to the compiler (for instance, 
+    a text file or XML file).
+    The "AppDesigner" element specifies the directory where the application properties files
+    can be found.
+  -->
+  <ItemGroup>
+    <Compile Include="AddInViewModel.cs" />
+    <Compile Include="AudioDiagnosticTool.cs" />
+    <Compile Include="Audio\AudioBufferProcessor.cs" />
+    <Compile Include="Audio\IAudioCapture.cs" />
+    <Compile Include="Audio\MemoryStreamPool.cs" />
+    <Compile Include="Audio\NAudioCapture.cs" />
+    <Compile Include="Document\IDocumentService.cs" />
+    <Compile Include="Document\WordDocumentService.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Text\ConfigurationManager.cs" />
+    <Compile Include="Text\KeywordReplacement.cs" />
+    <Compile Include="Text\LoggingService.cs" />
+    <Compile Include="Text\TextBufferService.cs" />
+    <Compile Include="TranscriptionSettings.cs" />
+    <Compile Include="Transcription\ITranscriptionService.cs" />
+    <Compile Include="Transcription\ITranscriptionServiceProvider.cs" />
+    <Compile Include="Transcription\TextProcessor.cs" />
+    <Compile Include="Transcription\TranscriptionEventArgs.cs" />
+    <Compile Include="Transcription\TranscriptionProcessor.cs" />
+    <Compile Include="Transcription\TranscriptionResultEventArgs.cs" />
+    <Compile Include="Transcription\TranscriptionService.cs" />
+    <Compile Include="Transcription\WhisperModelManager.cs" />
+    <Compile Include="Transcription\WhisperTranscriptionServiceProvider.cs" />
+    <Resource Include="runtimes\cuda\win-x64\ggml-base-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\cuda\win-x64\ggml-cpu-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\cuda\win-x64\ggml-cuda-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\cuda\win-x64\ggml-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\cuda\win-x64\whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\noavx\win-x64\ggml-base-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\noavx\win-x64\ggml-cpu-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\noavx\win-x64\ggml-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\noavx\win-x64\whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Content Include="Keywords.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="runtimes\noavx\win-x86\ggml-base-whisper.dll" />
+    <Content Include="runtimes\noavx\win-x86\ggml-cpu-whisper.dll" />
+    <Content Include="runtimes\noavx\win-x86\ggml-whisper.dll" />
+    <Content Include="runtimes\openvino\win-x64\ggml-base-whisper.dll" />
+    <Content Include="runtimes\openvino\win-x64\ggml-cpu-whisper.dll" />
+    <Content Include="runtimes\openvino\win-x64\ggml-whisper.dll" />
+    <Content Include="runtimes\openvino\win-x64\whisper.dll" />
+    <Resource Include="runtimes\vulkan\win-x64\ggml-base-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\vulkan\win-x64\ggml-cpu-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\vulkan\win-x64\ggml-vulkan-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\vulkan\win-x64\ggml-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\vulkan\win-x64\whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\win-arm64\ggml-base-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\win-arm64\ggml-cpu-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\win-arm64\ggml-whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="runtimes\win-arm64\whisper.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Content Include="runtimes\win-x64\ggml-base-whisper.dll" />
+    <Content Include="runtimes\win-x64\ggml-cpu-whisper.dll" />
+    <Content Include="runtimes\win-x64\ggml-whisper.dll" />
+    <Content Include="runtimes\win-x64\whisper.dll" />
+    <Content Include="runtimes\win-x86\ggml-base-whisper.dll" />
+    <Content Include="runtimes\win-x86\ggml-cpu-whisper.dll" />
+    <Content Include="runtimes\win-x86\ggml-whisper.dll" />
+    <Content Include="runtimes\win-x86\whisper.dll" />
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <EmbeddedResource Include="MainRibbon.resx">
+      <DependentUpon>MainRibbon.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <None Include="app.config" />
+    <Content Include="Models\ggml-base.bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Models\ggml-large.bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Models\ggml-medium.bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Models\ggml-small.bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Models\ggml-tiny.bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Models\ggml-turbo.bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ggml-metal.metal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <Compile Include="MainRibbon.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="MainRibbon.Designer.cs">
+      <DependentUpon>MainRibbon.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ThisAddIn.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <None Include="readme.md" />
+    <None Include="runtimes\coreml\macos-arm64\libggml-base-whisper.dylib" />
+    <None Include="runtimes\coreml\macos-arm64\libggml-blas-whisper.dylib" />
+    <None Include="runtimes\coreml\macos-arm64\libggml-cpu-whisper.dylib" />
+    <None Include="runtimes\coreml\macos-arm64\libggml-metal-whisper.dylib" />
+    <None Include="runtimes\coreml\macos-arm64\libggml-whisper.dylib" />
+    <None Include="runtimes\coreml\macos-arm64\libwhisper.coreml.dylib" />
+    <None Include="runtimes\coreml\macos-arm64\libwhisper.dylib" />
+    <None Include="runtimes\coreml\macos-x64\libggml-base-whisper.dylib" />
+    <None Include="runtimes\coreml\macos-x64\libggml-blas-whisper.dylib" />
+    <None Include="runtimes\coreml\macos-x64\libggml-cpu-whisper.dylib" />
+    <None Include="runtimes\coreml\macos-x64\libggml-whisper.dylib" />
+    <None Include="runtimes\coreml\macos-x64\libwhisper.coreml.dylib" />
+    <None Include="runtimes\coreml\macos-x64\libwhisper.dylib" />
+    <None Include="runtimes\cuda\linux-x64\libggml-base-whisper.so" />
+    <None Include="runtimes\cuda\linux-x64\libggml-cpu-whisper.so" />
+    <None Include="runtimes\cuda\linux-x64\libggml-cuda-whisper.so" />
+    <None Include="runtimes\cuda\linux-x64\libggml-whisper.so" />
+    <None Include="runtimes\cuda\linux-x64\libwhisper.so" />
+    <None Include="runtimes\linux-arm64\libggml-base-whisper.so" />
+    <None Include="runtimes\linux-arm64\libggml-cpu-whisper.so" />
+    <None Include="runtimes\linux-arm64\libggml-whisper.so" />
+    <None Include="runtimes\linux-arm64\libwhisper.so" />
+    <None Include="runtimes\linux-arm\libggml-base-whisper.so" />
+    <None Include="runtimes\linux-arm\libggml-cpu-whisper.so" />
+    <None Include="runtimes\linux-arm\libggml-whisper.so" />
+    <None Include="runtimes\linux-arm\libwhisper.so" />
+    <None Include="runtimes\linux-x64\libggml-base-whisper.so" />
+    <None Include="runtimes\linux-x64\libggml-cpu-whisper.so" />
+    <None Include="runtimes\linux-x64\libggml-whisper.so" />
+    <None Include="runtimes\linux-x64\libwhisper.so" />
+    <None Include="runtimes\macos-arm64\libggml-base-whisper.dylib" />
+    <None Include="runtimes\macos-arm64\libggml-blas-whisper.dylib" />
+    <None Include="runtimes\macos-arm64\libggml-cpu-whisper.dylib" />
+    <None Include="runtimes\macos-arm64\libggml-metal-whisper.dylib" />
+    <None Include="runtimes\macos-arm64\libggml-whisper.dylib" />
+    <None Include="runtimes\macos-arm64\libwhisper.dylib" />
+    <None Include="runtimes\macos-x64\libggml-base-whisper.dylib" />
+    <None Include="runtimes\macos-x64\libggml-blas-whisper.dylib" />
+    <None Include="runtimes\macos-x64\libggml-cpu-whisper.dylib" />
+    <None Include="runtimes\macos-x64\libggml-whisper.dylib" />
+    <None Include="runtimes\macos-x64\libwhisper.dylib" />
+    <None Include="runtimes\noavx\linux-x64\libggml-base-whisper.so" />
+    <None Include="runtimes\noavx\linux-x64\libggml-cpu-whisper.so" />
+    <None Include="runtimes\noavx\linux-x64\libggml-whisper.so" />
+    <None Include="runtimes\noavx\linux-x64\libwhisper.so" />
+    <None Include="runtimes\noavx\win-x86\whisper.ggml" />
+    <None Include="runtimes\openvino\linux-x64\libggml-base-whisper.so" />
+    <None Include="runtimes\openvino\linux-x64\libggml-cpu-whisper.so" />
+    <None Include="runtimes\openvino\linux-x64\libggml-whisper.so" />
+    <None Include="runtimes\openvino\linux-x64\libwhisper.so" />
+    <None Include="runtimes\vulkan\linux-x64\libggml-base-whisper.so" />
+    <None Include="runtimes\vulkan\linux-x64\libggml-cpu-whisper.so" />
+    <None Include="runtimes\vulkan\linux-x64\libggml-vulkan-whisper.so" />
+    <None Include="runtimes\vulkan\linux-x64\libggml-whisper.so" />
+    <None Include="runtimes\vulkan\linux-x64\libwhisper.so" />
+    <None Include="ThisAddIn.Designer.xml">
+      <DependentUpon>ThisAddIn.cs</DependentUpon>
+    </None>
+    <Compile Include="ThisAddIn.Designer.cs">
+      <DependentUpon>ThisAddIn.Designer.xml</DependentUpon>
+    </Compile>
+    <AppDesigner Include="Properties\" />
+    <None Include="WordAddIn1_1_TemporaryKey.pfx" />
+    <None Include="WordAddIn1_TemporaryKey.pfx" />
+  </ItemGroup>
+  <ItemGroup />
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SignManifests>true</SignManifests>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ManifestKeyFile>
+    </ManifestKeyFile>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ManifestCertificateThumbprint>24D1F515D4875DD1D9D7FA8D5672735636BCD0AD</ManifestCertificateThumbprint>
+  </PropertyGroup>
+  <!-- Include the build rules for a C# project. -->
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- Include additional build rules for an Office application add-in. -->
+  <Import Project="$(VSToolsPath)\OfficeTools\Microsoft.VisualStudio.Tools.Office.targets" Condition="'$(VSToolsPath)' != ''" />
+  <!-- This section defines VSTO properties that describe the host-changeable project properties. -->
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{BAA0C2D2-18E2-41B9-852F-F413020CAA33}">
+        <ProjectProperties HostName="Word" HostPackage="{29A7B9D7-A7F1-4328-8EF0-6B2D1A56B2C1}" OfficeVersion="15.0" VstxVersion="4.0" ApplicationType="Word" Language="cs" TemplatesPath="" DebugInfoExeName="#Software\Microsoft\Office\16.0\Word\InstallRoot\Path#WINWORD.EXE" DebugInfoCommandLine="/x" AddItemTemplatesGuid="{51063C3A-E220-4D12-8922-BDA915ACD783}" />
+        <Host Name="Word" GeneratedCodeNamespace="FennecTranscriptionSystem" PublishedHash="69C324AB27932AA2FBF2B7EA72250886FF164DE6" IconIndex="0">
+          <HostItem Name="ThisAddIn" Code="ThisAddIn.cs" CanonicalName="AddIn" PublishedHash="446724445FCD35D2283A3ABE21ACA6CF011CDA94" CanActivate="false" IconIndex="1" Blueprint="ThisAddIn.Designer.xml" GeneratedCode="ThisAddIn.Designer.cs" />
+        </Host>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\WebRtcVadSharp.1.3.2\build\WebRtcVadSharp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\WebRtcVadSharp.1.3.2\build\WebRtcVadSharp.targets'))" />
+    <Error Condition="!Exists('..\packages\Whisper.net.Runtime.1.8.1\build\Whisper.net.Runtime.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Whisper.net.Runtime.1.8.1\build\Whisper.net.Runtime.targets'))" />
+    <Error Condition="!Exists('..\packages\Whisper.net.Runtime.Cuda.Windows.1.8.1\build\Whisper.net.Runtime.Cuda.Windows.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Whisper.net.Runtime.Cuda.Windows.1.8.1\build\Whisper.net.Runtime.Cuda.Windows.targets'))" />
+    <Error Condition="!Exists('..\packages\Whisper.net.Runtime.Vulkan.1.8.1\build\Whisper.net.Runtime.Vulkan.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Whisper.net.Runtime.Vulkan.1.8.1\build\Whisper.net.Runtime.Vulkan.targets'))" />
+    <Error Condition="!Exists('..\packages\Whisper.net.Runtime.Cuda.Linux.1.8.1\build\Whisper.net.Runtime.Cuda.Linux.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Whisper.net.Runtime.Cuda.Linux.1.8.1\build\Whisper.net.Runtime.Cuda.Linux.targets'))" />
+    <Error Condition="!Exists('..\packages\Whisper.net.Runtime.CoreML.1.8.1\build\Whisper.net.Runtime.CoreML.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Whisper.net.Runtime.CoreML.1.8.1\build\Whisper.net.Runtime.CoreML.targets'))" />
+    <Error Condition="!Exists('..\packages\Whisper.net.Runtime.NoAvx.1.8.1\build\Whisper.net.Runtime.NoAvx.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Whisper.net.Runtime.NoAvx.1.8.1\build\Whisper.net.Runtime.NoAvx.targets'))" />
+    <Error Condition="!Exists('..\packages\Whisper.net.Runtime.OpenVino.1.8.1\build\Whisper.net.Runtime.OpenVino.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Whisper.net.Runtime.OpenVino.1.8.1\build\Whisper.net.Runtime.OpenVino.targets'))" />
+  </Target>
+  <Import Project="..\packages\WebRtcVadSharp.1.3.2\build\WebRtcVadSharp.targets" Condition="Exists('..\packages\WebRtcVadSharp.1.3.2\build\WebRtcVadSharp.targets')" />
+  <Import Project="..\packages\Whisper.net.Runtime.1.8.1\build\Whisper.net.Runtime.targets" Condition="Exists('..\packages\Whisper.net.Runtime.1.8.1\build\Whisper.net.Runtime.targets')" />
+  <Import Project="..\packages\Whisper.net.Runtime.Cuda.Windows.1.8.1\build\Whisper.net.Runtime.Cuda.Windows.targets" Condition="Exists('..\packages\Whisper.net.Runtime.Cuda.Windows.1.8.1\build\Whisper.net.Runtime.Cuda.Windows.targets')" />
+  <Import Project="..\packages\Whisper.net.Runtime.Vulkan.1.8.1\build\Whisper.net.Runtime.Vulkan.targets" Condition="Exists('..\packages\Whisper.net.Runtime.Vulkan.1.8.1\build\Whisper.net.Runtime.Vulkan.targets')" />
+  <Import Project="..\packages\Whisper.net.Runtime.Cuda.Linux.1.8.1\build\Whisper.net.Runtime.Cuda.Linux.targets" Condition="Exists('..\packages\Whisper.net.Runtime.Cuda.Linux.1.8.1\build\Whisper.net.Runtime.Cuda.Linux.targets')" />
+  <Import Project="..\packages\Whisper.net.Runtime.CoreML.1.8.1\build\Whisper.net.Runtime.CoreML.targets" Condition="Exists('..\packages\Whisper.net.Runtime.CoreML.1.8.1\build\Whisper.net.Runtime.CoreML.targets')" />
+  <Import Project="..\packages\Whisper.net.Runtime.NoAvx.1.8.1\build\Whisper.net.Runtime.NoAvx.targets" Condition="Exists('..\packages\Whisper.net.Runtime.NoAvx.1.8.1\build\Whisper.net.Runtime.NoAvx.targets')" />
+  <Import Project="..\packages\Whisper.net.Runtime.OpenVino.1.8.1\build\Whisper.net.Runtime.OpenVino.targets" Condition="Exists('..\packages\Whisper.net.Runtime.OpenVino.1.8.1\build\Whisper.net.Runtime.OpenVino.targets')" />
+</Project>

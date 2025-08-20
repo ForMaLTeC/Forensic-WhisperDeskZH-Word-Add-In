@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<KeywordReplacements>
+  <Replacement>
+    <Word>Punkt</Word>
+    <Symbol>.</Symbol>
+  </Replacement>
+  <Replacement>
+    <Word>Komma</Word>
+    <Symbol>,</Symbol>
+  </Replacement>
+  <Replacement>
+    <Word>Ausrufezeichen</Word>
+    <Symbol>!</Symbol>
+  </Replacement>
+  <Replacement>
+    <Word>Fragezeichen</Word>
+    <Symbol>?</Symbol>
+  </Replacement>
+  <Replacement>
+    <Word>semicolon</Word>
+    <Symbol>;</Symbol>
+  </Replacement>
+  <Replacement>
+    <Word>Doppelpunkt</Word>
+    <Symbol>:</Symbol>
+  </Replacement>
+  <Replacement>
+    <Word>Bindestrich</Word>
+    <Symbol>-</Symbol>
+  </Replacement>
+  <Replacement>
+    <Word>Neue Linie</Word>
+    <Symbol>
+    </Symbol>
+  </Replacement>
+  <Replacement>
+    <Word>Abstand</Word>
+    <Symbol>
+
+    </Symbol>
+  </Replacement>
+</KeywordReplacements>
