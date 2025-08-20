@@ -1,4 +1,4 @@
-name: Build and Publish VSTO Add-in
+﻿name: Build and Publish VSTO Add-in
 
 on:
   push:
@@ -10,6 +10,7 @@ on:
 env:
   SOLUTION_PATH: './ForensicWhisperDeskZH.sln'
   PROJECT_PATH: './ForensicWhisperDeskZH/ForensicWhisperDeskZH.csproj'
+  MODEL_DOWNLOADER_PATH: './ModelDownloader/ModelDownloader.csproj'
   BUILD_CONFIGURATION: 'Release'
   BUILD_PLATFORM: 'Any CPU'
   PUBLISH_URL: 'https://your-domain.com/vsto/'
@@ -39,84 +40,97 @@ jobs:
     - name: Setup .NET Framework
       uses: microsoft/setup-msbuild@v2
       
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0'
+        
     - name: Setup NuGet
       uses: nuget/setup-nuget@v2
       with:
         nuget-version: 'latest'
         
-    - name: Restore NuGet packages
+    - name: Restore NuGet packages for solution
       run: nuget restore ${{ env.SOLUTION_PATH }}
       
-    # NEW: Download Whisper Models for Build
-    - name: Download Whisper Models
+    - name: Restore packages for ModelDownloader
+      run: dotnet restore ${{ env.MODEL_DOWNLOADER_PATH }}
+      
+    # Build and run ModelDownloader before main build
+    - name: Build ModelDownloader
+      run: dotnet build ${{ env.MODEL_DOWNLOADER_PATH }} --configuration Release --no-restore
+      
+    - name: Download Whisper Models using ModelDownloader
       run: |
-        Write-Host "Starting Whisper model download process..."
+        Write-Host "=== Starting Whisper Model Download Process ==="
         
-        # Create Models directory in the project
+        # Create Models directory in the main project
         $modelsDir = "ForensicWhisperDeskZH\Models"
         New-Item -ItemType Directory -Force -Path $modelsDir
-        Write-Host "Created models directory: $modelsDir"
+        Write-Host "📁 Created models directory: $modelsDir"
         
         # Parse the models from environment variable
-        $models = "${{ env.WHISPER_MODELS }}" -split ","
-        Write-Host "Models to download: $($models -join ', ')"
+        $models = "${{ env.WHISPER_MODELS }}" -replace ",", " "
+        Write-Host "📋 Models to download: ${{ env.WHISPER_MODELS }}"
         
-        # Download each model using direct HTTP download
-        $baseUrl = "https://huggingface.co/sandrohanea/whisper.net/resolve/v3/classic/"
-        
-        foreach ($model in $models) {
-          $model = $model.Trim()
-          $fileName = "ggml-$model.bin"
-          $filePath = "$modelsDir\$fileName"
-          $downloadUrl = "$baseUrl/$fileName"
+        try {
+          # Run the ModelDownloader with proper arguments
+          $downloaderPath = "ModelDownloader\bin\Release\net8.0\ModelDownloader.exe"
           
-          Write-Host "Checking if $fileName already exists..."
-          if (Test-Path $filePath) {
-            $fileSize = (Get-Item $filePath).Length / 1MB
-            Write-Host "Model $model already exists ($([math]::Round($fileSize, 1)) MB) - skipping download"
-            continue
-          }
-          
-          Write-Host "Downloading $model model from $downloadUrl..."
-          try {
-            # Download with progress indication
-            $webClient = New-Object System.Net.WebClient
-            $webClient.DownloadFile($downloadUrl, $filePath)
+          if (Test-Path $downloaderPath) {
+            Write-Host "🚀 Running ModelDownloader..."
+            & $downloaderPath --models $models --target $modelsDir
             
-            # Verify download
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "✅ ModelDownloader completed successfully"
+            } else {
+              throw "ModelDownloader failed with exit code $LASTEXITCODE"
+            }
+          } else {
+            throw "ModelDownloader executable not found at $downloaderPath"
+          }
+        } catch {
+          Write-Host "❌ ModelDownloader failed: $($_.Exception.Message)"
+          Write-Host "🔄 Falling back to direct download method..."
+          
+          # Fallback to direct download using correct domain
+          $models = "${{ env.WHISPER_MODELS }}" -split ","
+          $baseUrl = "https://huggingface.co/sandrohanea/whisper.net/resolve/v3/classic"
+          
+          foreach ($model in $models) {
+            $model = $model.Trim()
+            $fileName = "ggml-$model.bin"
+            $filePath = "$modelsDir\$fileName"
+            $downloadUrl = "$baseUrl/$fileName"
+            
             if (Test-Path $filePath) {
               $fileSize = (Get-Item $filePath).Length / 1MB
-              Write-Host "Successfully downloaded $model model ($([math]::Round($fileSize, 1)) MB)"
-            } else {
-              throw "File was not created after download"
+              Write-Host "⏭️  Model $model already exists ($([math]::Round($fileSize, 1)) MB) - skipping"
+              continue
             }
-          } catch {
-            Write-Host "Failed to download $model model: $($_.Exception.Message)"
-            Write-Host "Attempting alternative download method..."
             
-            # Fallback: Use Invoke-WebRequest
+            Write-Host "⬇️  Downloading $model model from $downloadUrl..."
             try {
               Invoke-WebRequest -Uri $downloadUrl -OutFile $filePath -UseBasicParsing
               $fileSize = (Get-Item $filePath).Length / 1MB
-              Write-Host "Successfully downloaded $model model using fallback method ($([math]::Round($fileSize, 1)) MB)"
+              Write-Host "✅ Successfully downloaded $model model ($([math]::Round($fileSize, 1)) MB)"
             } catch {
-              Write-Host "Critical error: Failed to download $model model using both methods"
-              Write-Host "Error: $($_.Exception.Message)"
+              Write-Host "❌ Failed to download $model model: $($_.Exception.Message)"
               exit 1
             }
           }
         }
         
-        # List downloaded models for verification
-        Write-Host "Verifying downloaded models:"
+        # Verify downloaded models
+        Write-Host "📋 Verifying downloaded models:"
         if (Test-Path $modelsDir) {
           Get-ChildItem -Path $modelsDir -Filter "*.bin" | ForEach-Object {
             $sizeInMB = $_.Length / 1MB
-            Write-Host "  $($_.Name) - $([math]::Round($sizeInMB, 1)) MB"
+            Write-Host "   📄 $($_.Name) - $([math]::Round($sizeInMB, 1)) MB"
           }
         }
         
-        Write-Host "Whisper model download process completed successfully!"
+        Write-Host "🎉 Whisper model download process completed successfully!"
         
     - name: Setup Certificate for Signing
       if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
