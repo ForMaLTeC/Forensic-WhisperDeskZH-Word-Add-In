@@ -1,0 +1,310 @@
+name: Build and Publish VSTO Add-in
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  SOLUTION_PATH: './ForensicWhisperDeskZH.sln'
+  PROJECT_PATH: './ForensicWhisperDeskZH/ForensicWhisperDeskZH.csproj'
+  BUILD_CONFIGURATION: 'Release'
+  BUILD_PLATFORM: 'Any CPU'
+  PUBLISH_URL: 'https://your-domain.com/vsto/'
+  APPLICATION_NAME: 'ForensicWhisperDeskZH'
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Needed for GitVersion
+        
+    - name: Setup GitVersion
+      uses: gittools/actions/gitversion/setup@v0.9.15
+      with:
+        versionSpec: '5.x'
+        
+    - name: Determine Version
+      id: gitversion
+      uses: gittools/actions/gitversion/execute@v0.9.15
+      
+    - name: Setup .NET Framework
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Setup NuGet
+      uses: nuget/setup-nuget@v2
+      with:
+        nuget-version: 'latest'
+        
+    - name: Setup Certificate for Signing
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+      env:
+        CERTIFICATE_BASE64: ${{ secrets.SIGNING_CERTIFICATE }}
+        CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+      run: |
+        if ($env:CERTIFICATE_BASE64) {
+          $certBytes = [Convert]::FromBase64String($env:CERTIFICATE_BASE64)
+          [IO.File]::WriteAllBytes("$env:GITHUB_WORKSPACE\certificate.pfx", $certBytes)
+          echo "CERT_PATH=$env:GITHUB_WORKSPACE\certificate.pfx" >> $env:GITHUB_ENV
+          echo "Certificate prepared for signing"
+        } else {
+          echo "No certificate provided - will create self-signed certificate"
+        }
+        
+    - name: Create Self-Signed Certificate (for testing)
+      if: env.CERT_PATH == '' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+      run: |
+        $cert = New-SelfSignedCertificate -Subject "CN=ForensicWhisperDeskZH" -CertStoreLocation "Cert:\CurrentUser\My" -KeyUsage DigitalSignature -Type CodeSigning
+        $certPath = "$env:GITHUB_WORKSPACE\selfsigned.pfx"
+        $password = ConvertTo-SecureString "password" -AsPlainText -Force
+        Export-PfxCertificate -Cert $cert -FilePath $certPath -Password $password
+        echo "CERT_PATH=$certPath" >> $env:GITHUB_ENV
+        echo "CERT_PASSWORD=password" >> $env:GITHUB_ENV
+        echo "Self-signed certificate created"
+        
+    - name: Restore NuGet packages
+      run: nuget restore ${{ env.SOLUTION_PATH }}
+      
+    - name: Update Assembly Version
+      run: |
+        $version = "${{ steps.gitversion.outputs.assemblySemVer }}"
+        $fileVersion = "${{ steps.gitversion.outputs.assemblySemFileVer }}"
+        
+        # Update AssemblyInfo.cs
+        $assemblyInfo = "ForensicWhisperDeskZH\Properties\AssemblyInfo.cs"
+        if (Test-Path $assemblyInfo) {
+          (Get-Content $assemblyInfo) -replace 'AssemblyVersion\(".*"\)', "AssemblyVersion(`"$version`")" | Set-Content $assemblyInfo
+          (Get-Content $assemblyInfo) -replace 'AssemblyFileVersion\(".*"\)', "AssemblyFileVersion(`"$fileVersion`")" | Set-Content $assemblyInfo
+          echo "Updated version to $version"
+        }
+        
+    - name: Build Solution
+      run: |
+        msbuild ${{ env.SOLUTION_PATH }} `
+          /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
+          /p:Platform="${{ env.BUILD_PLATFORM }}" `
+          /p:PublishUrl="${{ env.PUBLISH_URL }}" `
+          /p:InstallUrl="${{ env.PUBLISH_URL }}" `
+          /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" `
+          /p:PublishWizardShown=false `
+          /p:PublishWizardCompleted=true `
+          /p:IsWebBootstrapper=true `
+          /p:BootstrapperEnabled=true `
+          /p:UpdateEnabled=true `
+          /p:UpdateMode=Foreground `
+          /p:UpdateInterval=7 `
+          /p:UpdateIntervalUnits=days `
+          /p:UpdateRequired=false `
+          /p:MapFileExtensions=true `
+          /p:ApplicationRevision=0 `
+          /p:UseApplicationTrust=false `
+          /p:CreateDesktopShortcut=true `
+          /p:ExcludeDeploymentUrl=false `
+          /verbosity:normal
+          
+    - name: Include Additional Files
+      run: |
+        $outputDir = "ForensicWhisperDeskZH\bin\${{ env.BUILD_CONFIGURATION }}"
+        
+        # Copy Keywords.xml if it exists
+        if (Test-Path "ForensicWhisperDeskZH\Keywords.xml") {
+          Copy-Item "ForensicWhisperDeskZH\Keywords.xml" "$outputDir\" -Force
+        }
+        
+        # Copy any Whisper models (if they exist and are small enough)
+        if (Test-Path "ForensicWhisperDeskZH\Models") {
+          $modelsDir = "$outputDir\Models"
+          New-Item -ItemType Directory -Force -Path $modelsDir
+          Copy-Item "ForensicWhisperDeskZH\Models\*.bin" $modelsDir -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Copy native dependencies
+        $runtimesPath = "packages\Whisper.net.*\runtimes"
+        if (Test-Path $runtimesPath) {
+          Copy-Item $runtimesPath "$outputDir\" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+    - name: Publish VSTO Application
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+      run: |
+        # Create publish directory
+        $publishDir = "publish"
+        New-Item -ItemType Directory -Force -Path $publishDir
+        
+        # Publish the application
+        msbuild ${{ env.PROJECT_PATH }} `
+          /target:Publish `
+          /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
+          /p:Platform="${{ env.BUILD_PLATFORM }}" `
+          /p:PublishUrl="${{ env.PUBLISH_URL }}" `
+          /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" `
+          /p:PublishDir="$publishDir\" `
+          /verbosity:normal
+          
+    - name: Sign Application Files
+      if: env.CERT_PATH != '' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+      run: |
+        $certPath = $env:CERT_PATH
+        $certPassword = if ($env:CERT_PASSWORD) { $env:CERT_PASSWORD } else { "${{ secrets.CERTIFICATE_PASSWORD }}" }
+        
+        # Sign the main executable and DLLs
+        $filesToSign = Get-ChildItem -Path "publish" -Include "*.exe", "*.dll", "*.vsto" -Recurse
+        
+        foreach ($file in $filesToSign) {
+          try {
+            & signtool sign /f "$certPath" /p "$certPassword" /t "http://timestamp.digicert.com" "$($file.FullName)"
+            echo "Signed: $($file.Name)"
+          } catch {
+            echo "Failed to sign: $($file.Name) - $($_.Exception.Message)"
+          }
+        }
+        
+    - name: Update Application Manifest
+      if: env.CERT_PATH != '' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+      run: |
+        $certPath = $env:CERT_PATH
+        $certPassword = if ($env:CERT_PASSWORD) { $env:CERT_PASSWORD } else { "${{ secrets.CERTIFICATE_PASSWORD }}" }
+        
+        # Find and sign manifests
+        $manifests = Get-ChildItem -Path "publish" -Include "*.manifest", "*.application" -Recurse
+        
+        foreach ($manifest in $manifests) {
+          try {
+            # Use mage.exe to sign manifests
+            $mageExe = "${env:ProgramFiles(x86)}\Microsoft SDKs\ClickOnce\SignTool\mage.exe"
+            if (Test-Path $mageExe) {
+              & $mageExe -Sign "$($manifest.FullName)" -CertFile "$certPath" -Password "$certPassword"
+              echo "Signed manifest: $($manifest.Name)"
+            } else {
+              echo "Mage.exe not found, skipping manifest signing"
+            }
+          } catch {
+            echo "Failed to sign manifest: $($manifest.Name) - $($_.Exception.Message)"
+          }
+        }
+        
+    - name: Create Deployment Package
+      run: |
+        $version = "${{ steps.gitversion.outputs.semVer }}"
+        $packageName = "${{ env.APPLICATION_NAME }}-v$version"
+        
+        # Create a comprehensive deployment package
+        New-Item -ItemType Directory -Force -Path "deployment"
+        
+        # Copy publish output
+        if (Test-Path "publish") {
+          Copy-Item "publish\*" "deployment\" -Recurse -Force
+        }
+        
+        # Copy build output as fallback
+        $buildOutput = "ForensicWhisperDeskZH\bin\${{ env.BUILD_CONFIGURATION }}"
+        if (Test-Path $buildOutput) {
+          Copy-Item "$buildOutput\*" "deployment\bin\" -Recurse -Force
+        }
+        
+        # Create setup script
+        $setupScript = @"
+@echo off
+echo Installing ForensicWhisperDeskZH VSTO Add-in...
+echo.
+echo This will install the Microsoft Word add-in for transcription.
+echo Please ensure Microsoft Word is closed before continuing.
+echo.
+pause
+echo.
+echo Installing...
+if exist "ForensicWhisperDeskZH.vsto" (
+    start /wait ForensicWhisperDeskZH.vsto
+    echo Installation completed!
+) else (
+    echo Error: Installation file not found!
+    echo Please ensure ForensicWhisperDeskZH.vsto is in the same directory.
+)
+pause
+"@
+        $setupScript | Out-File -FilePath "deployment\Install.bat" -Encoding ASCII
+        
+        # Create readme
+        $readme = @"
+# ForensicWhisperDeskZH VSTO Add-in v$version
+
+## Installation Instructions
+
+1. Ensure Microsoft Word is closed
+2. Run Install.bat as Administrator
+3. Follow the installation prompts
+4. Open Microsoft Word - the add-in should appear in the ribbon
+
+## Requirements
+
+- Microsoft Word 2016 or later
+- .NET Framework 4.8
+- Windows 10 or later
+
+## Files Included
+
+- ForensicWhisperDeskZH.vsto - Main installation file
+- Application files and dependencies
+- Keywords.xml - Configuration file for text processing
+
+## Version Information
+
+Version: $version
+Build Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+Commit: ${{ github.sha }}
+"@
+        $readme | Out-File -FilePath "deployment\README.md" -Encoding UTF8
+        
+        # Create zip package
+        Compress-Archive -Path "deployment\*" -DestinationPath "$packageName.zip" -Force
+        echo "PACKAGE_NAME=$packageName" >> $env:GITHUB_ENV
+        
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: vsto-build-${{ github.run_number }}
+        path: |
+          ForensicWhisperDeskZH/bin/${{ env.BUILD_CONFIGURATION }}/**
+          publish/**
+        retention-days: 30
+        
+    - name: Upload Deployment Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.PACKAGE_NAME }}
+        path: ${{ env.PACKAGE_NAME }}.zip
+        retention-days: 90
+        
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ${{ env.PACKAGE_NAME }}.zip
+        body: |
+          ## ForensicWhisperDeskZH VSTO Add-in Release
+          
+          **Version:** ${{ steps.gitversion.outputs.semVer }}
+          **Build Date:** ${{ steps.gitversion.outputs.commitDate }}
+          
+          ### Installation
+          
+          1. Download the deployment package
+          2. Extract the zip file
+          3. Run `Install.bat` as Administrator
+          4. Follow the installation prompts
+          
+          ### Changes
+          
+          See the commit history for detailed changes in this release.
+          
+        draft: false
+        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
