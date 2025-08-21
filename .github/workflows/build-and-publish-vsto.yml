@@ -261,7 +261,13 @@ jobs:
           Write-Host "Signing disabled - no certificate available"
           $buildParams += "/p:SignManifests=false"
           $buildParams += "/p:SignAssembly=false"
-        
+        } elseif ($env:CERT_PATH -and (Test-Path $env:CERT_PATH)) {
+          Write-Host "Signing enabled with certificate: $env:CERT_PATH"
+          $buildParams += "/p:SignManifests=true"
+          $buildParams += "/p:ManifestKeyFile=$env:CERT_PATH"
+          if ($env:CERT_PASSWORD) {
+            $buildParams += "/p:ManifestCertificatePassword=$env:CERT_PASSWORD"
+          }
         } else {
           Write-Host "No valid certificate found - disabling signing"
           $buildParams += "/p:SignManifests=false"
