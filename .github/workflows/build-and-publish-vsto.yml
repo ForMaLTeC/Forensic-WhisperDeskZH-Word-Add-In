@@ -74,7 +74,7 @@ jobs:
         Write-Host "Models to download: $modelsString"
         
         try {
-          # Run the ModelDownloader with proper arguments
+          # Run the ModelDownloader
           $downloaderPath = "ModelDownloader\bin\Release\net8.0\ModelDownloader.exe"
           
           if (Test-Path $downloaderPath) {
@@ -94,7 +94,7 @@ jobs:
           Write-Host "ModelDownloader failed: $($_.Exception.Message)"
           Write-Host "Falling back to direct download method..."
           
-          # Fallback to direct download using correct domain
+          # Fallback to direct download
           $models = "${{ env.WHISPER_MODELS }}" -split ","
           $baseUrl = "https://huggingface.co/sandrohanea/whisper.net/resolve/v3/classic"
           
@@ -114,9 +114,9 @@ jobs:
             try {
               Invoke-WebRequest -Uri $downloadUrl -OutFile $filePath -UseBasicParsing
               $fileSize = (Get-Item $filePath).Length / 1MB
-              Write-Host "✅ Successfully downloaded $model model ($([math]::Round($fileSize, 1)) MB)"
+              Write-Host "Successfully downloaded $model model ($([math]::Round($fileSize, 1)) MB)"
             } catch {
-              Write-Host "❌ Failed to download $model model: $($_.Exception.Message)"
+              Write-Host "Failed to download $model model: $($_.Exception.Message)"
               exit 1
             }
           }
@@ -196,8 +196,8 @@ jobs:
           if (Test-Path $certPath) {
             $fileSize = (Get-Item $certPath).Length
             Write-Host "Self-signed certificate created successfully"
-            Write-Host "   📄 File: $certPath"
-            Write-Host "   📊 Size: $fileSize bytes"
+            Write-Host "File: $certPath"
+            Write-Host "Size: $fileSize bytes"
             
             # Set environment variables
             echo "CERT_PATH=$certPath" >> $env:GITHUB_ENV
@@ -261,13 +261,7 @@ jobs:
           Write-Host "Signing disabled - no certificate available"
           $buildParams += "/p:SignManifests=false"
           $buildParams += "/p:SignAssembly=false"
-        } elseif ($env:CERT_PATH -and (Test-Path $env:CERT_PATH)) {
-          Write-Host "Signing enabled with certificate: $env:CERT_PATH"
-          $buildParams += "/p:SignManifests=true"
-          $buildParams += "/p:ManifestKeyFile=$env:CERT_PATH"
-          if ($env:CERT_PASSWORD) {
-            $buildParams += "/p:ManifestCertificatePassword=$env:CERT_PASSWORD"
-          }
+        
         } else {
           Write-Host "No valid certificate found - disabling signing"
           $buildParams += "/p:SignManifests=false"
