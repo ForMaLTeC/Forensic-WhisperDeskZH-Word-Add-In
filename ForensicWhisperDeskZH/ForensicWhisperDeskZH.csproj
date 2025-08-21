@@ -565,7 +565,10 @@
     </ManifestKeyFile>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestCertificateThumbprint>24D1F515D4875DD1D9D7FA8D5672735636BCD0AD</ManifestCertificateThumbprint>
+    <ManifestCertificateThumbprint>14AE25EF65B3198D4E81D8BB225DEEB97D0D1AA1</ManifestCertificateThumbprint>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
   </PropertyGroup>
   <!-- Include the build rules for a C# project. -->
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
