@@ -467,6 +467,7 @@
     <Content Include="ggml-metal.metal">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="ForensicWhisperDeskZH.pfx" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -561,11 +562,10 @@
     <SignManifests>true</SignManifests>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestKeyFile>
-    </ManifestKeyFile>
+    <ManifestKeyFile>ForensicWhisperDeskZH.pfx</ManifestKeyFile>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestCertificateThumbprint>14AE25EF65B3198D4E81D8BB225DEEB97D0D1AA1</ManifestCertificateThumbprint>
+    <ManifestCertificateThumbprint>C52EEE27E021EFF0605845953AAB646597BAE06E</ManifestCertificateThumbprint>
   </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>true</SignAssembly>
