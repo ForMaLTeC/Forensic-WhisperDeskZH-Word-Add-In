@@ -130,6 +130,25 @@ jobs:
         
         Write-Host "Whisper model download process completed successfully!"
 
+    
+    # Install Code Signing Certificate
+    - name: Install Code Signing Certificate
+      if: github.event_name != 'pull_request'
+      run: |
+        # Decode certificate from base64
+        $certBytes = [System.Convert]::FromBase64String("${{ secrets.SIGNING_CERTIFICATE }}")
+        $certPath = "$env:TEMP\ForensicWhisperDeskZH.pfx"
+        [System.IO.File]::WriteAllBytes($certPath, $certBytes)
+        
+        # Import certificate to Personal store
+        $securePassword = ConvertTo-SecureString "${{ secrets.CERTIFICATE_PASSWORD }}" -AsPlainText -Force
+        Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
+        
+        # Clean up certificate file
+        Remove-Item $certPath -Force
+        
+        Write-Host "Certificate installed successfully"
+
     - name: Restore NuGet packages for solution
       run: nuget restore ${{ env.SOLUTION_PATH }}
 
