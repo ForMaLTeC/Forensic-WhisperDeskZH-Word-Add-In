@@ -228,12 +228,9 @@ jobs:
           ### Installation Options
           
           **Quick Install (Recommended):**
-          - Download `ForensicWhisperDeskZH-${{ github.ref_name }}.vsto`
-          - Double-click to install directly
-          
-          **Complete Package:**
           - Download `VSTO-Addin-Package-${{ github.ref_name }}.zip`
-          - Contains all files including Whisper models and deployment files
+          - Unzipp Package 
+          - Run `setup.exe` from the extracted files as Administrator 
           
           ### System Requirements
           - Microsoft Word 2016 or later
@@ -243,49 +240,45 @@ jobs:
         prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
       id: create_release
 
-    - name: Upload VSTO File
-
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./release-artifacts/ForensicWhisperDeskZH.vsto
-        asset_name: ForensicWhisperDeskZH-${{ github.ref_name }}.vsto
-        asset_content_type: application/vsto
-
-    - name: Create ZIP from Artifact Contents
-
+    - name: Create ZIP from Artifact Contents (Split)
       run: |
-        Write-Host "Creating ZIP from artifact contents..."
-        $zipName = "VSTO-Addin-Package-${{ github.ref_name }}.zip"
+        Write-Host "Creating split ZIP from artifact contents..."
+        $zipBaseName = "VSTO-Addin-Package-${{ github.ref_name }}"
         
-        # Use 7-Zip if available (handles large files better), otherwise fall back to PowerShell
+        # Use 7-Zip to create split archives (500MB parts)
         if (Get-Command "7z" -ErrorAction SilentlyContinue) {
-          Write-Host "Using 7-Zip for compression..."
-          & 7z a -tzip $zipName ".\release-artifacts\*" -r
+          Write-Host "Using 7-Zip for split compression..."
+          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1000m
         } else {
-          Write-Host "Using PowerShell compression..."
-          # Create smaller chunks if needed
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          [System.IO.Compression.ZipFile]::CreateFromDirectory((Resolve-Path ".\release-artifacts"), $zipName)
+          # Install 7-Zip via chocolatey for splitting capability
+          Write-Host "Installing 7-Zip..."
+          choco install 7zip -y
+          & "C:\Program Files\7-Zip\7z.exe" a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v500m
         }
         
-        if (Test-Path $zipName) {
-          $size = [math]::Round((Get-Item $zipName).Length / 1MB, 2)
-          Write-Host "✅ Created $zipName ($size MB)"
-        } else {
-          Write-Error "❌ Failed to create ZIP file"
-          exit 1
+        # List created files
+        Get-ChildItem -Filter "$zipBaseName.zip*" | ForEach-Object {
+          $size = [math]::Round($_.Length / 1MB, 2)
+          Write-Host "✅ Created $($_.Name) ($size MB)"
         }
 
-    - name: Upload Complete Package
-
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: VSTO-Addin-Package-${{ github.ref_name }}.zip
-        asset_name: VSTO-Addin-Package-${{ github.ref_name }}.zip
-        asset_content_type: application/zip
+    - name: Upload Split Package Parts
+      run: |
+        $parts = Get-ChildItem -Filter "VSTO-Addin-Package-${{ github.ref_name }}.zip*"
+        foreach ($part in $parts) {
+          Write-Host "Uploading $($part.Name)..."
+          
+          $headers = @{
+            'Authorization' = 'token ${{ secrets.GITHUB_TOKEN }}'
+            'Content-Type' = 'application/zip'
+          }
+          
+          $uploadUrl = "${{ steps.create_release.outputs.upload_url }}".Replace('{?name,label}', "?name=$($part.Name)")
+          
+          try {
+            Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -InFile $part.FullName
+            Write-Host "✅ Successfully uploaded $($part.Name)"
+          } catch {
+            Write-Error "❌ Failed to upload $($part.Name): $($_.Exception.Message)"
+          }
+        }
