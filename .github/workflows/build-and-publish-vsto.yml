@@ -198,6 +198,73 @@ jobs:
         name: VSTO-Addin-Package
         path: ForensicWhisperDeskZH\publish
 
-
-    
+    - name: Create Release Archive
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        Write-Host "Creating release archive..."
+        $archiveName = "ForensicWhisperDeskZH-${{ github.ref_name }}-Complete.zip"
+        Compress-Archive -Path "ForensicWhisperDeskZH\publish\*" -DestinationPath $archiveName -Force
+        Write-Host "Created archive: $archiveName"
         
+        # List contents for verification
+        Write-Host "Archive contents:"
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $archiveName))
+        $zip.Entries | ForEach-Object { Write-Host "  $($_.FullName)" }
+        $zip.Dispose()
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body: |
+          ## ForensicWhisperDeskZH Release ${{ github.ref_name }}
+          
+          ### Features
+          - VSTO Add-in for Microsoft Word
+          - Whisper-based transcription capabilities
+          - Version: ${{ steps.gitversion.outputs.semVer }}
+          
+          ### Installation Options
+          
+          **Quick Install (Recommended):**
+          - Download `ForensicWhisperDeskZH-${{ github.ref_name }}.vsto`
+          - Double-click to install directly
+          
+          **Manual Install:**
+          - Download `ForensicWhisperDeskZH-${{ github.ref_name }}-Complete.zip`
+          - Extract and run setup.exe or manually install files
+          
+          ### System Requirements
+          - Microsoft Word 2016 or later
+          - .NET Framework 4.8
+          - Windows 10 or later
+        draft: false
+        prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+      id: create_release
+
+    - name: Upload VSTO File
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ForensicWhisperDeskZH\publish\ForensicWhisperDeskZH.vsto
+        asset_name: ForensicWhisperDeskZH-${{ github.ref_name }}.vsto
+        asset_content_type: application/vsto
+
+    - name: Upload Complete Package
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ForensicWhisperDeskZH-${{ github.ref_name }}-Complete.zip
+        asset_name: ForensicWhisperDeskZH-${{ github.ref_name }}-Complete.zip
+        asset_content_type: application/zip
