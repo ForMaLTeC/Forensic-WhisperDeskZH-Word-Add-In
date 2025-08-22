@@ -153,7 +153,13 @@ jobs:
       run: nuget restore ${{ env.SOLUTION_PATH }}
 
     - name: Build Word Add-In
-      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=Release
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=Release /p:PublishDir=publish\ /p:PublishUrl=publish\
+
+    - name: Upload published artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: VSTO-Addin-Package
+        path: YourProject\publish
 
 
     
