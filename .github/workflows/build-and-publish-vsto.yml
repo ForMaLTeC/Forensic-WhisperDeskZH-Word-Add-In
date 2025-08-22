@@ -155,6 +155,43 @@ jobs:
     - name: Build Word Add-In
       run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=Release /p:PublishDir=publish\ /p:PublishUrl=publish\
 
+          # Debug step to find the actual output paths
+    - name: List build output directories
+      run: |
+        Write-Host "=== Build Output Investigation ==="
+        
+        # List all directories that might contain build outputs
+        $searchPaths = @(
+          "ForensicWhisperDeskZH\bin\Release",
+          "ForensicWhisperDeskZH\bin",
+          "ForensicWhisperDeskZH\publish",
+          "bin\Release",
+          "publish"
+        )
+        
+        foreach ($path in $searchPaths) {
+          if (Test-Path $path) {
+            Write-Host "📁 Found directory: $path"
+            Get-ChildItem -Path $path -Recurse | ForEach-Object {
+              $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1)
+              $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+              Write-Host "    $relativePath - $size"
+            }
+            Write-Host ""
+          } else {
+            Write-Host "❌ Directory not found: $path"
+          }
+        }
+        
+        # Look for common VSTO output files
+        Write-Host "=== Searching for VSTO files ==="
+        Get-ChildItem -Recurse -Include "*.dll", "*.manifest", "*.vsto", "*.deploy" | ForEach-Object {
+          $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1)
+          $size = "$([math]::Round($_.Length / 1KB, 1)) KB"
+          Write-Host "📄 $relativePath - $size"
+        }
+
+
     - name: Upload published artifacts
       uses: actions/upload-artifact@v4
       with:
