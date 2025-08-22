@@ -195,26 +195,19 @@ jobs:
     - name: Upload published artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: VSTO-Addin-Package
+        name: VSTO-Addin-Package-${{ github.ref_name || github.sha }}
         path: ForensicWhisperDeskZH\publish
+      id: upload_artifact
 
-    - name: Create Release Archive
-
-      run: |
-        Write-Host "Creating release archive..."
-        $archiveName = "ForensicWhisperDeskZH-${{ github.ref_name }}-Complete.zip"
-        Compress-Archive -Path "ForensicWhisperDeskZH\publish\*" -DestinationPath $archiveName -Force
-        Write-Host "Created archive: $archiveName"
-        
-        # List contents for verification
-        Write-Host "Archive contents:"
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $archiveName))
-        $zip.Entries | ForEach-Object { Write-Host "  $($_.FullName)" }
-        $zip.Dispose()
+    - name: Download Artifact for Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/download-artifact@v4
+      with:
+        name: VSTO-Addin-Package-${{ github.ref_name }}
+        path: ./release-artifacts
 
     - name: Create Release
-
+      
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -235,9 +228,9 @@ jobs:
           - Download `ForensicWhisperDeskZH-${{ github.ref_name }}.vsto`
           - Double-click to install directly
           
-          **Manual Install:**
-          - Download `ForensicWhisperDeskZH-${{ github.ref_name }}-Complete.zip`
-          - Extract and run setup.exe or manually install files
+          **Complete Package:**
+          - Download `VSTO-Addin-Package-${{ github.ref_name }}.zip`
+          - Contains all files including Whisper models and deployment files
           
           ### System Requirements
           - Microsoft Word 2016 or later
@@ -254,17 +247,42 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ForensicWhisperDeskZH\publish\ForensicWhisperDeskZH.vsto
+        asset_path: ./release-artifacts/ForensicWhisperDeskZH.vsto
         asset_name: ForensicWhisperDeskZH-${{ github.ref_name }}.vsto
         asset_content_type: application/vsto
 
-    - name: Upload Complete Package
+    - name: Create ZIP from Artifact Contents
 
+      run: |
+        Write-Host "Creating ZIP from artifact contents..."
+        $zipName = "VSTO-Addin-Package-${{ github.ref_name }}.zip"
+        
+        # Use 7-Zip if available (handles large files better), otherwise fall back to PowerShell
+        if (Get-Command "7z" -ErrorAction SilentlyContinue) {
+          Write-Host "Using 7-Zip for compression..."
+          & 7z a -tzip $zipName ".\release-artifacts\*" -r
+        } else {
+          Write-Host "Using PowerShell compression..."
+          # Create smaller chunks if needed
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::CreateFromDirectory((Resolve-Path ".\release-artifacts"), $zipName)
+        }
+        
+        if (Test-Path $zipName) {
+          $size = [math]::Round((Get-Item $zipName).Length / 1MB, 2)
+          Write-Host "✅ Created $zipName ($size MB)"
+        } else {
+          Write-Error "❌ Failed to create ZIP file"
+          exit 1
+        }
+
+    - name: Upload Complete Package
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ForensicWhisperDeskZH-${{ github.ref_name }}-Complete.zip
-        asset_name: ForensicWhisperDeskZH-${{ github.ref_name }}-Complete.zip
+        asset_path: VSTO-Addin-Package-${{ github.ref_name }}.zip
+        asset_name: VSTO-Addin-Package-${{ github.ref_name }}.zip
         asset_content_type: application/zip
