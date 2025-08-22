@@ -307,12 +307,16 @@ jobs:
       if: github.ref_name == 'main' && github.event_name != 'pull_request'
       run: |
         Write-Host "Creating split ZIP from artifact contents..."
-        $zipBaseName = "VSTO-Addin-Package-v${{ steps.gitversion.outputs.semVer }}"
+        $semVer = "${{ steps.gitversion.outputs.semVer }}"
+        $zipBaseName = "VSTO-Addin-Package-v$semVer"
+        
+        Write-Host "Using version: $semVer"
+        Write-Host "ZIP base name: $zipBaseName"
         
         # Use 7-Zip to create split archives (500MB parts)
         if (Get-Command "7z" -ErrorAction SilentlyContinue) {
           Write-Host "Using 7-Zip for split compression..."
-          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1000m
+          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v500m
         } else {
           # Install 7-Zip via chocolatey for splitting capability
           Write-Host "Installing 7-Zip..."
@@ -320,17 +324,38 @@ jobs:
           & "C:\Program Files\7-Zip\7z.exe" a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v500m
         }
         
-        # List created files
+        # List created files for debugging
+        Write-Host "=== Created Files ==="
         Get-ChildItem -Filter "$zipBaseName.zip*" | ForEach-Object {
           $size = [math]::Round($_.Length / 1MB, 2)
           Write-Host "✅ Created $($_.Name) ($size MB)"
         }
+        
+        # Set output for next step
+        echo "ZIP_BASE_NAME=$zipBaseName" >> $env:GITHUB_OUTPUT
+      id: create_zip
 
     - name: Upload Split Package Parts
       if: github.ref_name == 'main' && github.event_name != 'pull_request'
       run: |
-        $tagVersion = "${{ steps.extract_version.outputs.TAG_VERSION }}"
-        $parts = Get-ChildItem -Filter "VSTO-Addin-Package-$tagVersion.zip*"
+        $zipBaseName = "${{ steps.create_zip.outputs.ZIP_BASE_NAME }}"
+        Write-Host "Looking for files with pattern: $zipBaseName.zip*"
+        
+        # List all files for debugging
+        Write-Host "=== All ZIP files in directory ==="
+        Get-ChildItem -Filter "*.zip*" | ForEach-Object {
+          Write-Host "Found: $($_.Name)"
+        }
+        
+        $parts = Get-ChildItem -Filter "$zipBaseName.zip*"
+        
+        if ($parts.Count -eq 0) {
+          Write-Error "No ZIP parts found with pattern: $zipBaseName.zip*"
+          exit 1
+        }
+        
+        Write-Host "Found $($parts.Count) ZIP parts to upload"
+        
         foreach ($part in $parts) {
           Write-Host "Uploading $($part.Name)..."
           
@@ -340,11 +365,19 @@ jobs:
           }
           
           $uploadUrl = "${{ steps.create_release.outputs.upload_url }}".Replace('{?name,label}', "?name=$($part.Name)")
+          Write-Host "Upload URL: $uploadUrl"
           
           try {
-            Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -InFile $part.FullName
+            $response = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -InFile $part.FullName
             Write-Host "✅ Successfully uploaded $($part.Name)"
+            Write-Host "Response: $($response.browser_download_url)"
           } catch {
             Write-Error "❌ Failed to upload $($part.Name): $($_.Exception.Message)"
+            Write-Host "Exception details: $($_.Exception)"
+            if ($_.Exception.Response) {
+              $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+              $responseBody = $reader.ReadToEnd()
+              Write-Host "Response body: $responseBody"
+            }
           }
         }
