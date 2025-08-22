@@ -137,7 +137,6 @@ jobs:
     
     # Install Code Signing Certificate
     - name: Install Code Signing Certificate
-      if: github.event_name != 'pull_request'
       run: |
         # Decode certificate from base64
         $certBytes = [System.Convert]::FromBase64String("${{ secrets.SIGNING_CERTIFICATE }}")
