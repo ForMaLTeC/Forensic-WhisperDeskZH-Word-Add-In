@@ -284,9 +284,9 @@ jobs:
           ### Installation Options
           
           **Quick Install (Recommended):**
-          - 1. **Download ALL parts** (VSTO-Addin-Package-v${{ steps.gitversion.outputs.semVer }}.zip.001, .002, etc.)
-          - 2. **Extract using 7-Zip** - right-click the .001 file and extract
-          - 3. **Run `setup.exe`** from the extracted files **as Administrator**
+          1. **Download ALL parts** (VSTO-Addin-Package-v${{ steps.gitversion.outputs.semVer }}.zip.001, .002, etc.)
+          2. **Extract using 7-Zip** - right-click the .001 file and extract
+          3. **Run `setup.exe`** from the extracted files **as Administrator**
 
           ### Key Points for Users:
           1. **Download ALL parts** - The split archive won't work unless all parts are present
