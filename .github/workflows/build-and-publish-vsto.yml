@@ -22,6 +22,9 @@ jobs:
   build-model-download:
     runs-on: windows-latest
     
+    permissions:
+        contents: write
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -207,7 +210,6 @@ jobs:
         path: ./release-artifacts
 
     - name: Create Release
-      
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
