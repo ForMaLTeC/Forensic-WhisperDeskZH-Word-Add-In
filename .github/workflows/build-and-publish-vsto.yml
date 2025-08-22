@@ -236,52 +236,77 @@ jobs:
         name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
         path: ./release-artifacts
 
+    - name: Extract Assembly Version
+      id: extract_version
+      run: |
+        Write-Host "Extracting assembly version from AssemblyInfo.cs..."
+        
+        # Read the AssemblyInfo.cs file
+        $assemblyInfoPath = "ForensicWhisperDeskZH\Properties\AssemblyInfo.cs"
+        $content = Get-Content $assemblyInfoPath -Raw
+        
+        # Extract AssemblyVersion using regex
+        if ($content -match '\[assembly:\s*AssemblyVersion\("([^"]+)"\)\]') {
+          $assemblyVersion = $matches[1]
+          Write-Host "Found AssemblyVersion: $assemblyVersion"
+        } else {
+          Write-Error "Could not find AssemblyVersion in $assemblyInfoPath"
+          exit 1
+        }
+        
+        # Create a tag-friendly version (prefix with 'v')
+        $tagVersion = "v$assemblyVersion"
+        Write-Host "Tag version will be: $tagVersion"
+        
+        # Set outputs for use in subsequent steps
+        echo "ASSEMBLY_VERSION=$assemblyVersion" >> $env:GITHUB_OUTPUT
+        echo "TAG_VERSION=$tagVersion" >> $env:GITHUB_OUTPUT
+
     - name: Create Release
       if: github.ref == 'refs/heads/main'
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.ref_name }}
-        release_name: Release ${{ github.ref_name }}
+        tag_name: ${{ steps.extract_version.outputs.TAG_VERSION }}
+        release_name: Release ${{ steps.extract_version.outputs.TAG_VERSION }}
         body: |
-          ## ForensicWhisperDeskZH Release ${{ github.ref_name }}
+          ## ForensicWhisperDeskZH Release ${{ steps.extract_version.outputs.TAG_VERSION }}
           
-                  
           **Important**: This package is split into multiple parts due to size limitations.
 
           ### Features
           - VSTO Add-in for Microsoft Word
           - Whisper-based transcription capabilities
-          - Version: ${{ steps.gitversion.outputs.semVer }}
+          - Assembly Version: ${{ steps.extract_version.outputs.ASSEMBLY_VERSION }}
+          - GitVersion: ${{ steps.gitversion.outputs.semVer }}
           
           ### Installation Options
           
           **Quick Install (Recommended):**
-          - 1. **Download ALL parts** (VSTO-Addin-Package-${{ github.ref_name }}.zip.001, .002, etc.)
+          - 1. **Download ALL parts** (VSTO-Addin-Package-${{ steps.extract_version.outputs.TAG_VERSION }}.zip.001, .002, etc.)
           - 2. **Extract using 7-Zip** - right-click the .001 file and extract
           - 3. **Run `setup.exe`** from the extracted files **as Administrator**
 
           ### Key Points for Users:
-
-            1. **Download ALL parts** - The split archive won't work unless all parts are present
-            2. **Extract from the first part** - Always right-click on `.001` file to extract
-            3. **Use proper extraction tools** - 7-Zip, WinRAR, or similar tools that support split archives
-            4. **Windows built-in extractor won't work** with split archives
+          1. **Download ALL parts** - The split archive won't work unless all parts are present
+          2. **Extract from the first part** - Always right-click on `.001` file to extract
+          3. **Use proper extraction tools** - 7-Zip, WinRAR, or similar tools that support split archives
+          4. **Windows built-in extractor won't work** with split archives
           
           ### System Requirements
           - Microsoft Word 2016 or later
           - .NET Framework 4.8
           - Windows 10 or later
         draft: false
-        prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+        prerelease: false
       id: create_release
 
     - name: Create ZIP from Artifact Contents (Split)
       if: github.ref == 'refs/heads/main'
       run: |
         Write-Host "Creating split ZIP from artifact contents..."
-        $zipBaseName = "VSTO-Addin-Package-${{ steps.sanitize_name.outputs.SANITIZED_NAME }}"
+        $zipBaseName = "VSTO-Addin-Package-${{ steps.extract_version.outputs.TAG_VERSION }}"
         
         # Use 7-Zip to create split archives (500MB parts)
         if (Get-Command "7z" -ErrorAction SilentlyContinue) {
@@ -303,8 +328,8 @@ jobs:
     - name: Upload Split Package Parts
       if: github.ref == 'refs/heads/main'
       run: |
-        $sanitizedName = "${{ steps.sanitize_name.outputs.SANITIZED_NAME }}"
-        $parts = Get-ChildItem -Filter "VSTO-Addin-Package-$sanitizedName.zip*"
+        $tagVersion = "${{ steps.extract_version.outputs.TAG_VERSION }}"
+        $parts = Get-ChildItem -Filter "VSTO-Addin-Package-$tagVersion.zip*"
         foreach ($part in $parts) {
           Write-Host "Uploading $($part.Name)..."
           
