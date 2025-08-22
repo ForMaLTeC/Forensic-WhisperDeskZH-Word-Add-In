@@ -1,4 +1,4 @@
-﻿name: Build and Publish VSTO Add-in
+name: Build and Publish VSTO Add-in
 
 on:
   push:
