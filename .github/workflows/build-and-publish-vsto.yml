@@ -230,13 +230,14 @@ jobs:
       id: upload_artifact
 
     - name: Download Artifact for Release
-      if: github.ref == 'refs/heads/main'
+      if: github.ref_name == 'main'
       uses: actions/download-artifact@v4
       with:
         name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
         path: ./release-artifacts
 
     - name: Extract Assembly Version
+      if: github.ref_name == 'main' && github.event_name != 'pull_request'
       id: extract_version
       run: |
         Write-Host "Extracting assembly version from AssemblyInfo.cs..."
@@ -263,7 +264,7 @@ jobs:
         echo "TAG_VERSION=$tagVersion" >> $env:GITHUB_OUTPUT
 
     - name: Create Release
-      if: github.ref == 'refs/heads/main'
+      if: github.ref_name == 'main' && github.event_name != 'pull_request'
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -303,7 +304,7 @@ jobs:
       id: create_release
 
     - name: Create ZIP from Artifact Contents (Split)
-      if: github.ref == 'refs/heads/main'
+      if: github.ref_name == 'main' && github.event_name != 'pull_request'
       run: |
         Write-Host "Creating split ZIP from artifact contents..."
         $zipBaseName = "VSTO-Addin-Package-v${{ steps.gitversion.outputs.semVer }}"
@@ -326,7 +327,7 @@ jobs:
         }
 
     - name: Upload Split Package Parts
-      if: github.ref == 'refs/heads/main'
+      if: github.ref_name == 'main' && github.event_name != 'pull_request'
       run: |
         $tagVersion = "${{ steps.extract_version.outputs.TAG_VERSION }}"
         $parts = Get-ChildItem -Filter "VSTO-Addin-Package-$tagVersion.zip*"
