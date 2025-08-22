@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [ main, develop, PipelineSetup ]
+    branches: [ main, develop]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
@@ -204,13 +204,14 @@ jobs:
       id: upload_artifact
 
     - name: Download Artifact for Release
-
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: actions/download-artifact@v4
       with:
         name: VSTO-Addin-Package-${{ github.ref_name }}
         path: ./release-artifacts
 
     - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -220,6 +221,9 @@ jobs:
         body: |
           ## ForensicWhisperDeskZH Release ${{ github.ref_name }}
           
+                  
+          **Important**: This package is split into multiple parts due to size limitations.
+
           ### Features
           - VSTO Add-in for Microsoft Word
           - Whisper-based transcription capabilities
@@ -228,9 +232,16 @@ jobs:
           ### Installation Options
           
           **Quick Install (Recommended):**
-          - Download `VSTO-Addin-Package-${{ github.ref_name }}.zip`
-          - Unzipp Package 
-          - Run `setup.exe` from the extracted files as Administrator 
+          - 1. **Download ALL parts** (VSTO-Addin-Package-${{ github.ref_name }}.zip.001, .002, etc.)
+          - 2. **Extract using 7-Zip** - right-click the .001 file and extract
+          - 3. **Run `setup.exe`** from the extracted files **as Administrator**
+
+          ### Key Points for Users:
+
+            1. **Download ALL parts** - The split archive won't work unless all parts are present
+            2. **Extract from the first part** - Always right-click on `.001` file to extract
+            3. **Use proper extraction tools** - 7-Zip, WinRAR, or similar tools that support split archives
+            4. **Windows built-in extractor won't work** with split archives
           
           ### System Requirements
           - Microsoft Word 2016 or later
@@ -241,6 +252,7 @@ jobs:
       id: create_release
 
     - name: Create ZIP from Artifact Contents (Split)
+      if: startsWith(github.ref, 'refs/tags/v')
       run: |
         Write-Host "Creating split ZIP from artifact contents..."
         $zipBaseName = "VSTO-Addin-Package-${{ github.ref_name }}"
@@ -263,6 +275,7 @@ jobs:
         }
 
     - name: Upload Split Package Parts
+      if: startsWith(github.ref, 'refs/tags/v')
       run: |
         $parts = Get-ChildItem -Filter "VSTO-Addin-Package-${{ github.ref_name }}.zip*"
         foreach ($part in $parts) {
