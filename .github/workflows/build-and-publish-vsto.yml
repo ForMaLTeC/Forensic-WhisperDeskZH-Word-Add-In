@@ -233,7 +233,7 @@ jobs:
     runs-on: windows-latest
     needs: build
     # Only run release job for main branch pushes (not PRs)
-    if: github.ref_name == 'main' && github.event_name == 'push'
+    if: github.event_name == 'push'
     
     permissions:
       contents: write
