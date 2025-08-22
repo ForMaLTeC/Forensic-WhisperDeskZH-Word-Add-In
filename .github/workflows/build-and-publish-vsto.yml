@@ -1,4 +1,4 @@
-﻿name: Build and Publish VSTO Add-in
+name: Build and Publish VSTO Add-in
 
 on:
   push:
@@ -19,11 +19,13 @@ env:
   WHISPER_MODELS: 'base,large'
 
 jobs:
-  build-model-download:
+  build:
     runs-on: windows-latest
     
-    permissions:
-        contents: write
+    outputs:
+      version: ${{ steps.gitversion.outputs.semVer }}
+      assembly-version: ${{ steps.gitversion.outputs.assemblySemVer }}
+      artifact-name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
 
     steps:
     - name: Checkout code
@@ -61,7 +63,6 @@ jobs:
       run: dotnet build ${{ env.MODEL_DOWNLOADER_PATH }} --configuration Release --no-restore /p:SignAssembly=false /p:SignManifests=false
       
     - name: Download Whisper Models using ModelDownloader
-  
       run: |
         Write-Host "=== Starting Whisper Model Download Process ==="
         
@@ -134,7 +135,6 @@ jobs:
         
         Write-Host "Whisper model download process completed successfully!"
 
-    
     # Install Code Signing Certificate
     - name: Install Code Signing Certificate
       run: |
@@ -158,7 +158,7 @@ jobs:
     - name: Build Word Add-In
       run: msbuild ${{ env.SOLUTION_PATH }} /t:publish /p:Configuration=Release /p:PublishDir=.\publish\ /p:PublishUrl=.\publish\
 
-          # Debug step to find the actual output paths
+    # Debug step to find the actual output paths
     - name: List build output directories
       run: |
         Write-Host "=== Build Output Investigation ==="
@@ -194,7 +194,6 @@ jobs:
           Write-Host "📄 $relativePath - $size"
         }
 
-
     - name: Sanitize Artifact Name
       id: sanitize_name
       run: |
@@ -227,65 +226,47 @@ jobs:
       with:
         name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
         path: ForensicWhisperDeskZH\publish
+        retention-days: 1  # Only keep for release job
       id: upload_artifact
 
-    - name: Download Artifact for Release
-      if: github.ref_name == 'main'
+  release:
+    runs-on: windows-latest
+    needs: build
+    # Only run release job for main branch pushes (not PRs)
+    if: github.event_name == 'push'
+    
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download Build Artifacts
       uses: actions/download-artifact@v4
       with:
-        name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
+        name: ${{ needs.build.outputs.artifact-name }}
         path: ./release-artifacts
 
-    - name: Extract Assembly Version
-      if: github.ref_name == 'main' && github.event_name != 'pull_request'
-      id: extract_version
-      run: |
-        Write-Host "Extracting assembly version from AssemblyInfo.cs..."
-        
-        # Read the AssemblyInfo.cs file
-        $assemblyInfoPath = "ForensicWhisperDeskZH\Properties\AssemblyInfo.cs"
-        $content = Get-Content $assemblyInfoPath -Raw
-        
-        # Extract AssemblyVersion using regex
-        if ($content -match '\[assembly:\s*AssemblyVersion\("([^"]+)"\)\]') {
-          $assemblyVersion = $matches[1]
-          Write-Host "Found AssemblyVersion: $assemblyVersion"
-        } else {
-          Write-Error "Could not find AssemblyVersion in $assemblyInfoPath"
-          exit 1
-        }
-        
-        # Create a tag-friendly version (prefix with 'v')
-        $tagVersion = "v$assemblyVersion"
-        Write-Host "Tag version will be: $tagVersion"
-        
-        # Set outputs for use in subsequent steps
-        echo "ASSEMBLY_VERSION=$assemblyVersion" >> $env:GITHUB_OUTPUT
-        echo "TAG_VERSION=$tagVersion" >> $env:GITHUB_OUTPUT
-
     - name: Create Release
-      if: github.ref_name == 'main' && github.event_name != 'pull_request'
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ steps.gitversion.outputs.semVer }}
-        release_name: Release v${{ steps.gitversion.outputs.semVer }}
+        tag_name: v${{ needs.build.outputs.version }}
+        release_name: Release v${{ needs.build.outputs.version }}
         body: |
-          ## ForensicWhisperDeskZH Release v${{ steps.gitversion.outputs.semVer }}
+          ## ForensicWhisperDeskZH Release v${{ needs.build.outputs.version }}
           
           **Important**: This package is split into multiple parts due to size limitations.
 
           ### Features
           - VSTO Add-in for Microsoft Word
           - Whisper-based transcription capabilities
-          - Version: ${{ steps.gitversion.outputs.semVer }}
-          - Assembly Version: ${{ steps.gitversion.outputs.assemblySemVer }}
+          - Version: ${{ needs.build.outputs.version }}
+          - Assembly Version: ${{ needs.build.outputs.assembly-version }}
           
           ### Installation Options
           
           **Quick Install (Recommended):**
-          1. **Download ALL parts** (VSTO-Addin-Package-v${{ steps.gitversion.outputs.semVer }}.zip.001, .002, etc.)
+          1. **Download ALL parts** (VSTO-Addin-Package-v${{ needs.build.outputs.version }}.zip.001, .002, etc.)
           2. **Extract using 7-Zip** - right-click the .001 file and extract
           3. **Run `setup.exe`** from the extracted files **as Administrator**
 
@@ -304,19 +285,18 @@ jobs:
       id: create_release
 
     - name: Create ZIP from Artifact Contents (Split)
-      if: github.ref_name == 'main' && github.event_name != 'pull_request'
       run: |
         Write-Host "Creating split ZIP from artifact contents..."
-        $semVer = "${{ steps.gitversion.outputs.semVer }}"
-        $zipBaseName = "VSTO-Addin-Package-v$semVer"
+        $version = "${{ needs.build.outputs.version }}"
+        $zipBaseName = "VSTO-Addin-Package-v$version"
         
-        Write-Host "Using version: $semVer"
+        Write-Host "Using version: $version"
         Write-Host "ZIP base name: $zipBaseName"
         
         # Use 7-Zip to create split archives (500MB parts)
         if (Get-Command "7z" -ErrorAction SilentlyContinue) {
           Write-Host "Using 7-Zip for split compression..."
-          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v500m
+          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1000m
         } else {
           # Install 7-Zip via chocolatey for splitting capability
           Write-Host "Installing 7-Zip..."
@@ -336,7 +316,6 @@ jobs:
       id: create_zip
 
     - name: Upload Split Package Parts
-      if: github.ref_name == 'main' && github.event_name != 'pull_request'
       run: |
         $zipBaseName = "${{ steps.create_zip.outputs.ZIP_BASE_NAME }}"
         Write-Host "Looking for files with pattern: $zipBaseName.zip*"
