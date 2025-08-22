@@ -36,8 +36,6 @@
         {
             this.tab1 = this.Factory.CreateRibbonTab();
             this.group2 = this.Factory.CreateRibbonGroup();
-            this.ListenModeButton = this.Factory.CreateRibbonButton();
-            this.StartTranscriptionButton = this.Factory.CreateRibbonButton();
             this.group1 = this.Factory.CreateRibbonGroup();
             this.MicrophoneCheckBox = this.Factory.CreateRibbonComboBox();
             this.LanguageSelection = this.Factory.CreateRibbonComboBox();
@@ -45,6 +43,8 @@
             this.AdvancedSettings = this.Factory.CreateRibbonGroup();
             this.SilenceThreshold = this.Factory.CreateRibbonEditBox();
             this.MinChunkSizeInSeconds = this.Factory.CreateRibbonEditBox();
+            this.ListenModeButton = this.Factory.CreateRibbonButton();
+            this.StartTranscriptionButton = this.Factory.CreateRibbonButton();
             this.ResetButton = this.Factory.CreateRibbonButton();
             this.tab1.SuspendLayout();
             this.group2.SuspendLayout();
@@ -67,24 +67,6 @@
             this.group2.Items.Add(this.StartTranscriptionButton);
             this.group2.Label = "Steuerung";
             this.group2.Name = "group2";
-            // 
-            // ListenModeButton
-            // 
-            this.ListenModeButton.ControlSize = Microsoft.Office.Core.RibbonControlSize.RibbonControlSizeLarge;
-            this.ListenModeButton.Label = "Zuhören Starten";
-            this.ListenModeButton.Name = "ListenModeButton";
-            this.ListenModeButton.OfficeImageId = "SpeechMicrophone";
-            this.ListenModeButton.ShowImage = true;
-            this.ListenModeButton.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.ListenModeButton_Click);
-            // 
-            // StartTranscriptionButton
-            // 
-            this.StartTranscriptionButton.ControlSize = Microsoft.Office.Core.RibbonControlSize.RibbonControlSizeLarge;
-            this.StartTranscriptionButton.Label = "Diktat Starten";
-            this.StartTranscriptionButton.Name = "StartTranscriptionButton";
-            this.StartTranscriptionButton.OfficeImageId = "AudioRecordingInsert";
-            this.StartTranscriptionButton.ShowImage = true;
-            this.StartTranscriptionButton.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.StartTranscriptionButton_Click);
             // 
             // group1
             // 
@@ -125,17 +107,35 @@
             // 
             // SilenceThreshold
             // 
-            this.SilenceThreshold.Label = "Silence Threshold";
+            this.SilenceThreshold.Label = "Dauer der Stille zwischen Wörtern";
             this.SilenceThreshold.Name = "SilenceThreshold";
             this.SilenceThreshold.Text = null;
             this.SilenceThreshold.TextChanged += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.SilenceThreshold_TextChanged);
             // 
             // MinChunkSizeInSeconds
             // 
-            this.MinChunkSizeInSeconds.Label = "Minimal Audio Chunk Size In Seconds";
+            this.MinChunkSizeInSeconds.Label = "Minimale Dauer von Audioblöcken";
             this.MinChunkSizeInSeconds.Name = "MinChunkSizeInSeconds";
             this.MinChunkSizeInSeconds.Text = null;
             this.MinChunkSizeInSeconds.TextChanged += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.MaxChunkSizeInSeconds_TextChanged);
+            // 
+            // ListenModeButton
+            // 
+            this.ListenModeButton.ControlSize = Microsoft.Office.Core.RibbonControlSize.RibbonControlSizeLarge;
+            this.ListenModeButton.Label = "Zuhören Starten";
+            this.ListenModeButton.Name = "ListenModeButton";
+            this.ListenModeButton.OfficeImageId = "SpeechMicrophone";
+            this.ListenModeButton.ShowImage = true;
+            this.ListenModeButton.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.ListenModeButton_Click);
+            // 
+            // StartTranscriptionButton
+            // 
+            this.StartTranscriptionButton.ControlSize = Microsoft.Office.Core.RibbonControlSize.RibbonControlSizeLarge;
+            this.StartTranscriptionButton.Label = "Diktat Starten";
+            this.StartTranscriptionButton.Name = "StartTranscriptionButton";
+            this.StartTranscriptionButton.OfficeImageId = "AudioRecordingInsert";
+            this.StartTranscriptionButton.ShowImage = true;
+            this.StartTranscriptionButton.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.StartTranscriptionButton_Click);
             // 
             // ResetButton
             // 
