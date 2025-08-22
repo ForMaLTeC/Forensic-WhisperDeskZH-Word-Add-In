@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36203.30
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ForensicWhisperDeskZH", "ForensicWhisperDeskZH\ForensicWhisperDeskZH.csproj", "{61566C3B-8B0F-4F06-AAE8-D422F06E62C4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModelDownloader", "ModelDownloader\ModelDownloader.csproj", "{ADB0EE2F-899A-4C48-A917-ACD65F5BAA22}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{61566C3B-8B0F-4F06-AAE8-D422F06E62C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{61566C3B-8B0F-4F06-AAE8-D422F06E62C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{61566C3B-8B0F-4F06-AAE8-D422F06E62C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ADB0EE2F-899A-4C48-A917-ACD65F5BAA22}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ADB0EE2F-899A-4C48-A917-ACD65F5BAA22}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ADB0EE2F-899A-4C48-A917-ACD65F5BAA22}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ADB0EE2F-899A-4C48-A917-ACD65F5BAA22}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
