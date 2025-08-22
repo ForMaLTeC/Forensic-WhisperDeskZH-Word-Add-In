@@ -268,23 +268,23 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.extract_version.outputs.TAG_VERSION }}
-        release_name: Release ${{ steps.extract_version.outputs.TAG_VERSION }}
+        tag_name: v${{ steps.gitversion.outputs.semVer }}
+        release_name: Release v${{ steps.gitversion.outputs.semVer }}
         body: |
-          ## ForensicWhisperDeskZH Release ${{ steps.extract_version.outputs.TAG_VERSION }}
+          ## ForensicWhisperDeskZH Release v${{ steps.gitversion.outputs.semVer }}
           
           **Important**: This package is split into multiple parts due to size limitations.
 
           ### Features
           - VSTO Add-in for Microsoft Word
           - Whisper-based transcription capabilities
-          - Assembly Version: ${{ steps.extract_version.outputs.ASSEMBLY_VERSION }}
-          - GitVersion: ${{ steps.gitversion.outputs.semVer }}
+          - Version: ${{ steps.gitversion.outputs.semVer }}
+          - Assembly Version: ${{ steps.gitversion.outputs.assemblySemVer }}
           
           ### Installation Options
           
           **Quick Install (Recommended):**
-          - 1. **Download ALL parts** (VSTO-Addin-Package-${{ steps.extract_version.outputs.TAG_VERSION }}.zip.001, .002, etc.)
+          - 1. **Download ALL parts** (VSTO-Addin-Package-v${{ steps.gitversion.outputs.semVer }}.zip.001, .002, etc.)
           - 2. **Extract using 7-Zip** - right-click the .001 file and extract
           - 3. **Run `setup.exe`** from the extracted files **as Administrator**
 
@@ -306,7 +306,7 @@ jobs:
       if: github.ref == 'refs/heads/main'
       run: |
         Write-Host "Creating split ZIP from artifact contents..."
-        $zipBaseName = "VSTO-Addin-Package-${{ steps.extract_version.outputs.TAG_VERSION }}"
+        $zipBaseName = "VSTO-Addin-Package-v${{ steps.gitversion.outputs.semVer }}"
         
         # Use 7-Zip to create split archives (500MB parts)
         if (Get-Command "7z" -ErrorAction SilentlyContinue) {
