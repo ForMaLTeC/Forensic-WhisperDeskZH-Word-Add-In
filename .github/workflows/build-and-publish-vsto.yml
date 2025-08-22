@@ -130,6 +130,9 @@ jobs:
         
         Write-Host "Whisper model download process completed successfully!"
 
+    - name: Restore NuGet packages for solution
+      run: nuget restore ${{ env.SOLUTION_PATH }}
+
     - name: Build Word Add-In
       run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=Release
 
