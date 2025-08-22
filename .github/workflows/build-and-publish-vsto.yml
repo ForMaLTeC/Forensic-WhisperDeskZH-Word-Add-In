@@ -195,10 +195,37 @@ jobs:
         }
 
 
+    - name: Sanitize Artifact Name
+      id: sanitize_name
+      run: |
+        # Get the ref name and sanitize it for artifact naming
+        $refName = "${{ github.ref_name || github.sha }}"
+        Write-Host "Original ref name: $refName"
+        
+        # Remove invalid characters: " : < > | * ? \r \n \ /
+        $sanitizedName = $refName -replace '[":/<>|*?\r\n\\]', '-'
+        
+        # Remove multiple consecutive dashes and trim
+        $sanitizedName = $sanitizedName -replace '-+', '-'
+        $sanitizedName = $sanitizedName.Trim('-')
+        
+        # Ensure it's not empty
+        if ([string]::IsNullOrWhiteSpace($sanitizedName)) {
+          $sanitizedName = "unknown"
+        }
+        
+        $fullArtifactName = "VSTO-Addin-Package-$sanitizedName"
+        
+        Write-Host "Sanitized artifact name: $fullArtifactName"
+        
+        # Set output for use in subsequent steps
+        echo "SANITIZED_NAME=$sanitizedName" >> $env:GITHUB_OUTPUT
+        echo "FULL_ARTIFACT_NAME=$fullArtifactName" >> $env:GITHUB_OUTPUT
+
     - name: Upload published artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: VSTO-Addin-Package-${{ github.ref_name || github.sha }}
+        name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
         path: ForensicWhisperDeskZH\publish
       id: upload_artifact
 
@@ -206,7 +233,7 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/v')
       uses: actions/download-artifact@v4
       with:
-        name: VSTO-Addin-Package-${{ github.ref_name }}
+        name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
         path: ./release-artifacts
 
     - name: Create Release
@@ -254,7 +281,7 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/v')
       run: |
         Write-Host "Creating split ZIP from artifact contents..."
-        $zipBaseName = "VSTO-Addin-Package-${{ github.ref_name }}"
+        $zipBaseName = "VSTO-Addin-Package-${{ steps.sanitize_name.outputs.SANITIZED_NAME }}"
         
         # Use 7-Zip to create split archives (500MB parts)
         if (Get-Command "7z" -ErrorAction SilentlyContinue) {
@@ -276,7 +303,8 @@ jobs:
     - name: Upload Split Package Parts
       if: startsWith(github.ref, 'refs/tags/v')
       run: |
-        $parts = Get-ChildItem -Filter "VSTO-Addin-Package-${{ github.ref_name }}.zip*"
+        $sanitizedName = "${{ steps.sanitize_name.outputs.SANITIZED_NAME }}"
+        $parts = Get-ChildItem -Filter "VSTO-Addin-Package-$sanitizedName.zip*"
         foreach ($part in $parts) {
           Write-Host "Uploading $($part.Name)..."
           
