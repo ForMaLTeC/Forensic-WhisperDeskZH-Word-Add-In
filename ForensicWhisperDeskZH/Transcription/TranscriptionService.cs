@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Media;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -196,6 +197,7 @@ namespace ForensicWhisperDeskZH.Transcription
             }
         }
 
+
         /// <summary>
         /// Starts transcription from the specified microphone
         /// </summary>
@@ -209,7 +211,9 @@ namespace ForensicWhisperDeskZH.Transcription
 
             try
             {
-                action?.Invoke("Starting transcription...");
+                // Play warning sound instead of inserting text
+                LoggingService.PlayTranscriptionStateChangeSound();
+                
                 LoggingService.LogMessage("TranscriptionService: Starting transcription", "TranscriptionService_StartTranscription");
                 LoggingService.LogMessage($"TranscriptionService: Using device number {deviceNumber}", "TranscriptionService_StartTranscription");
                 LoggingService.LogMessage($"TranscriptionService: Using language '{language?.Name ?? _settings.Language}'", "TranscriptionService_StartTranscription");
@@ -771,6 +775,7 @@ namespace ForensicWhisperDeskZH.Transcription
         public void StopTranscription()
         {
             Task.Run(async () => await StopTranscriptionInternalAsync());
+            LoggingService.PlayTranscriptionStateChangeSound(); 
         }
 
         /// <summary>

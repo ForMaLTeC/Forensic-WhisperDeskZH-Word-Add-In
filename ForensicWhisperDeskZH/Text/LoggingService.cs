@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Media;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -122,6 +123,78 @@ namespace ForensicWhisperDeskZH.Common
         public static void LogWarning(string message, string source = "Application")
         {
             Task.Run(() => LogWarningAsync(message, source)).Wait();
+        }
+
+        /// <summary>
+        /// Plays a system warning sound to indicate transcription start
+        /// </summary>
+        public static void PlayTranscriptionStateChangeSound()
+        {
+            try
+            {
+                // Play system warning sound (async to avoid blocking)
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        SystemSounds.Asterisk.Play();
+                    }
+                    catch (Exception ex)
+                    {
+                        // If SystemSounds fails, try Console.Beep as fallback
+                        try
+                        {
+                            Console.Beep(800, 200); // 800Hz for 200ms
+                        }
+                        catch
+                        {
+                            // Log but don't throw - sound is not critical for functionality
+                            LoggingService.LogMessage($"TranscriptionService: Failed to play start sound: {ex.Message}", "TranscriptionService_PlayTranscriptionStartSound");
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                // Log but don't throw - sound is not critical for functionality
+                LoggingService.LogMessage($"TranscriptionService: Error initiating start sound: {ex.Message}", "TranscriptionService_PlayTranscriptionStartSound");
+            }
+        }
+
+        /// <summary>
+        /// Plays a system warning sound to indicate transcription start
+        /// </summary>
+        public static void PlayDictationModeChangeSound()
+        {
+            try
+            {
+                // Play system warning sound (async to avoid blocking)
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        SystemSounds.Exclamation.Play();
+                    }
+                    catch (Exception ex)
+                    {
+                        // If SystemSounds fails, try Console.Beep as fallback
+                        try
+                        {
+                            Console.Beep(800, 200); // 800Hz for 200ms
+                        }
+                        catch
+                        {
+                            // Log but don't throw - sound is not critical for functionality
+                            LoggingService.LogMessage($"TranscriptionService: Failed to play start sound: {ex.Message}", "TranscriptionService_PlayTranscriptionStartSound");
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                // Log but don't throw - sound is not critical for functionality
+                LoggingService.LogMessage($"TranscriptionService: Error initiating start sound: {ex.Message}", "TranscriptionService_PlayTranscriptionStartSound");
+            }
         }
     }
 }

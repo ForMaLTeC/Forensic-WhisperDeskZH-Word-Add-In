@@ -284,11 +284,14 @@ namespace ForensicWhisperDeskZH
                 if (currentBuffer.Contains("diktat starten"))
                 {
                     _listeningBuffer.Clear();
+                    // Play Confirmation sound
+                    LoggingService.PlayDictationModeChangeSound();
                     _triggerPhraseDetected = true;
                 }
                 if(currentBuffer.Contains("diktat beenden"))
                 {
                     _listeningBuffer.Clear();
+                    LoggingService.PlayDictationModeChangeSound();
                     _triggerPhraseDetected = false;
                 }
 
