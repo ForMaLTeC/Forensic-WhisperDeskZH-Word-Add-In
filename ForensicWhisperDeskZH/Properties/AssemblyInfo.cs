@@ -6,11 +6,11 @@ using System.Security;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("FennecTranscriptionSystem")]
+[assembly: AssemblyTitle("ForensicWhisperDeskZH")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("FennecTranscriptionSystem")]
+[assembly: AssemblyCompany("IRM@UZH")]
+[assembly: AssemblyProduct("ForensicWhisperDeskZH")]
 [assembly: AssemblyCopyright("Copyright ©  2025")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
