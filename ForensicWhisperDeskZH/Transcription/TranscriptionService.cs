@@ -42,6 +42,7 @@ namespace ForensicWhisperDeskZH.Transcription
         private const int MaxConsecutiveErrors = 3;
 
         private bool _isTranscribing = false;
+        public bool IsTranscribing => _isTranscribing;
         private bool _isDisposed = false;
         private string _sessionId;
 
@@ -50,6 +51,8 @@ namespace ForensicWhisperDeskZH.Transcription
         public event EventHandler<TranscriptionEventArgs> TranscriptionStopped;
         public event EventHandler<TranscriptionResultEventArgs> TranscriptionResult;
         public event EventHandler<ErrorEventArgs> TranscriptionError; // Fix: Ensure the event matches the interface definition
+
+
 
         /// <summary>
         /// Creates a new instance of the transcription service
@@ -116,11 +119,6 @@ namespace ForensicWhisperDeskZH.Transcription
             }
         }
 
-
-        /// <summary>
-        /// Gets whether the service is currently transcribing
-        /// </summary>
-        public bool IsTranscribing => _isTranscribing;
 
         /// <summary>
         /// Creates a configured WhisperProcessor based on settings
