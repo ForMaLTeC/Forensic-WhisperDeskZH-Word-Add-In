@@ -2,7 +2,7 @@ using NAudio.Wave;
 using System;
 using Whisper.net.Ggml;
 
-namespace ForensicWhisperDeskZH
+namespace ForensicWhisperDeskZH.Transcription
 {
     /// <summary>
     /// Configuration settings for the transcription service, including audio processing parameters,
@@ -112,7 +112,7 @@ namespace ForensicWhisperDeskZH
         /// Default is false.
         /// </summary>
         public bool AutoPunctuation { get; set; } = false;
-        
+
         /// <summary>
         /// Gets a new instance of TranscriptionSettings with default values.
         /// </summary>
@@ -126,7 +126,7 @@ namespace ForensicWhisperDeskZH
         public void ResetTranscriptionSettings()
         {
             InsertionInterval = TimeSpan.FromMilliseconds(100);
-            SilenceThreshold = TimeSpan.FromMilliseconds(500);
+            SilenceThreshold = TimeSpan.FromSeconds(500);
             ChunkDuration = TimeSpan.FromSeconds(3);
             WaveFormat = new WaveFormat(16000, 16, 1);
             Threads = Environment.ProcessorCount;

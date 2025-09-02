@@ -16,17 +16,17 @@ namespace ForensicWhisperDeskZH.Audio
         /// Occurs when an error happens during audio capture
         /// </summary>
         event EventHandler<AudioCaptureErrorEventArgs> Error;
-        
+
         /// <summary>
         /// Gets whether the audio capture is currently active
         /// </summary>
         bool IsCapturing { get; }
-        
+
         /// <summary>
         /// Starts audio capture
         /// </summary>
         void StartCapture();
-        
+
         /// <summary>
         /// Stops audio capture
         /// </summary>
@@ -34,21 +34,21 @@ namespace ForensicWhisperDeskZH.Audio
 
         void Dispose();
     }
-    
+
     public class AudioDataEventArgs : EventArgs
     {
         public ReadOnlyMemory<byte> AudioData { get; }
-        
+
         public AudioDataEventArgs(ReadOnlyMemory<byte> audioData)
         {
             AudioData = audioData;
         }
     }
-    
+
     public class AudioCaptureErrorEventArgs : EventArgs
     {
         public Exception Exception { get; }
-        
+
         public AudioCaptureErrorEventArgs(Exception exception)
         {
             Exception = exception;

@@ -1,13 +1,13 @@
-﻿using Microsoft.Office.Tools.Ribbon;
+﻿using ForensicWhisperDeskZH.Audio;
+using ForensicWhisperDeskZH.Common;
+using Microsoft.Office.Tools.Ribbon;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using ForensicWhisperDeskZH.Audio;
 using Whisper.net.Ggml;
-using ForensicWhisperDeskZH.Common;
 
 namespace ForensicWhisperDeskZH
 {
@@ -264,19 +264,16 @@ namespace ForensicWhisperDeskZH
                 {
                     MessageBox.Show($"Silence Threshold must be longer than {_minSilenceThreshold} seconds",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    ViewModel._transcriptionSettings.SilenceThreshold = TimeSpan.FromSeconds(_minSilenceThreshold);
-                    SilenceThreshold.Text = _minSilenceThreshold.ToString(CultureInfo.InvariantCulture);
-                    return;
+                    threshold = _minSilenceThreshold;
                 }
                 if (threshold > _maxSilenceThreshold)
                 {
                     MessageBox.Show($"Silence Threshold must be shorter than {_maxSilenceThreshold} seconds.",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    ViewModel._transcriptionSettings.SilenceThreshold = TimeSpan.FromSeconds(_maxSilenceThreshold);
-                    SilenceThreshold.Text = _maxSilenceThreshold.ToString(CultureInfo.InvariantCulture);
-                    return;
+                    threshold = _maxSilenceThreshold;
                 }
-                ViewModel._transcriptionSettings.SilenceThreshold = TimeSpan.FromSeconds(threshold);
+                SilenceThreshold.Text = threshold.ToString(CultureInfo.InvariantCulture);
+                ViewModel.ChangeSilenceThreshold((int)threshold);
             }
             catch
             {

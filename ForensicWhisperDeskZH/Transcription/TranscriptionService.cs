@@ -1,12 +1,10 @@
 using ForensicWhisperDeskZH.Audio;
 using ForensicWhisperDeskZH.Common;
-using ForensicWhisperDeskZH.Transcription;
 using NAudio.Wave;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Media;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -86,8 +84,6 @@ namespace ForensicWhisperDeskZH.Transcription
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
                 _modelManager.DownloadAllModelsAsync().Wait();
 #endif
-                //CreateWhisperFactory();
-
             }
             catch (Exception ex)
             {
@@ -129,7 +125,7 @@ namespace ForensicWhisperDeskZH.Transcription
             {
                 // Play warning sound instead of inserting text
                 LoggingService.PlayTranscriptionStateChangeSound();
-                
+
                 LoggingService.LogMessage("TranscriptionService: Starting transcription", "TranscriptionService_StartTranscription");
                 LoggingService.LogMessage($"TranscriptionService: Using device number {deviceNumber}", "TranscriptionService_StartTranscription");
                 LoggingService.LogMessage($"TranscriptionService: Using language '{language?.Name ?? _settings.Language}'", "TranscriptionService_StartTranscription");
@@ -178,13 +174,15 @@ namespace ForensicWhisperDeskZH.Transcription
         public void StopTranscription()
         {
             Task.Run(async () => await StopTranscriptionInternalAsync());
-            LoggingService.PlayTranscriptionStateChangeSound(); 
+            LoggingService.PlayTranscriptionStateChangeSound();
+            CleanTempDirectory();
         }
 
         /// <summary>
         /// Transcribes an audio chunk directly without creating new processor instances
         /// </summary>
-        private async Task<TranscriptionResult> TranscribeChunkDirectlyAsync(MemoryStream audioBuffer,string sessionId,CancellationToken cancellationToken)
+        private async Task<TranscriptionResult> TranscribeChunkDirectlyAsync(MemoryStream audioBuffer, string sessionId, CancellationToken cancellationToken)
+
         {
             // Validate input buffer
             if (audioBuffer == null || audioBuffer.Length == 0)
@@ -196,7 +194,7 @@ namespace ForensicWhisperDeskZH.Transcription
             System.Diagnostics.Debug.WriteLine($"TranscriptionService: Processing audio buffer with {audioBuffer.Length} bytes");
 
             // Create a temporary file for the WAV data
-            string tempFile = Path.Combine(Path.GetTempPath(), $"debug_audio_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav");
+            string tempFile = Path.Combine(Path.GetTempPath(), $"WhisperDesk_audio_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav");
 
             try
             {
@@ -363,7 +361,7 @@ namespace ForensicWhisperDeskZH.Transcription
                         var allTasksCompletion = Task.WhenAll(pendingTasks);
                         var timeout = Task.Delay(3000); // Reduced timeout
                         var completedTask = await Task.WhenAny(allTasksCompletion, timeout);
-                        
+
                         if (completedTask == timeout)
                         {
                             System.Diagnostics.Debug.WriteLine("TranscriptionService: Timeout waiting for tasks to complete");
@@ -626,6 +624,35 @@ namespace ForensicWhisperDeskZH.Transcription
 
         #region Utility Methods
         /// <summary>
+        /// This Method Deletes all the audio chunks in the Temp Directory
+        /// </summary>
+        private void CleanTempDirectory()
+        {
+            try
+            {
+                var tempPath = Path.GetTempPath();
+                var tempFiles = Directory.GetFiles(tempPath, "WhisperDesk_audio_*.wav");
+                foreach (var file in tempFiles)
+                {
+                    try
+                    {
+                        File.Delete(file);
+                        System.Diagnostics.Debug.WriteLine($"TranscriptionService: Deleted temp file: {file}");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"TranscriptionService: Failed to delete temp file {file}: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error cleaning temp directory: {ex.Message}");
+            }
+
+        }
+
+        /// <summary>
         /// This Method detects if a audio file contains a voice or not using WebRTC VAD.
         /// </summary>
         /// <param name="tempFilePath"></param>
@@ -637,7 +664,7 @@ namespace ForensicWhisperDeskZH.Transcription
                 using (var reader = new WaveFileReader(tempFilePath))
                 {
                     System.Diagnostics.Debug.WriteLine($"TranscriptionService: Analyzing audio for voice using WebRTC VAD - Duration: {reader.TotalTime.TotalSeconds:F2}s");
-                   
+
                     // WebRTC VAD works with specific sample rates: 8000, 16000, 32000, or 48000 Hz
                     // and requires specific frame sizes
                     if (reader.WaveFormat.SampleRate != 16000 || reader.WaveFormat.Channels != 1 || reader.WaveFormat.BitsPerSample != 16)
@@ -895,9 +922,9 @@ namespace ForensicWhisperDeskZH.Transcription
             _settings.ChunkDuration = TimeSpan.FromSeconds(chunkDuration);
         }
 
-        public void ChangeSilenceThreshold(double overlapDuration)
+        public void ChangeSilenceThreshold(int silenceThreshold)
         {
-            _settings.SilenceThreshold = TimeSpan.FromSeconds(overlapDuration);
+            _settings.SilenceThreshold = TimeSpan.FromSeconds(silenceThreshold);
         }
 
         public void ChangeLanguage(string language)

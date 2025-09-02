@@ -1,11 +1,11 @@
+using ForensicWhisperDeskZH.Common;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 using Whisper.net;
 using Whisper.net.Ggml;
-using ForensicWhisperDeskZH.Common;
 
 namespace ForensicWhisperDeskZH.Transcription
 {
@@ -86,13 +86,13 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             // Default to essential models if none specified
             modelTypes = modelTypes ?? new[] { "base", "large" };
-            
+
             // Use provided directory or default to Models subdirectory
             string modelsDirectory = targetDirectory ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models");
-            
+
             // Ensure the Models directory exists
             Directory.CreateDirectory(modelsDirectory);
-            
+
             Console.WriteLine($"Downloading {modelTypes.Length} model(s) to: {modelsDirectory}");
 
             var downloader = new WhisperGgmlDownloader(_httpClient);
@@ -121,7 +121,7 @@ namespace ForensicWhisperDeskZH.Transcription
                     }
 
                     Console.WriteLine($"Successfully downloaded {modelType} model to {modelPath}");
-                    
+
                     // Log file size for verification
                     var fileInfo = new FileInfo(modelPath);
                     Console.WriteLine($"Model {modelType} size: {fileInfo.Length / (1024 * 1024):F1} MB");
@@ -147,12 +147,12 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             modelTypes = modelTypes ?? new[] { "base", "large" };
             string modelsDirectory = targetDirectory ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models");
-            
+
             Directory.CreateDirectory(modelsDirectory);
-            
+
             // HuggingFace direct download URLs
             const string baseUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
-            
+
             Console.WriteLine($"Direct downloading {modelTypes.Length} model(s) to: {modelsDirectory}");
 
             foreach (string modelType in modelTypes)
@@ -174,7 +174,7 @@ namespace ForensicWhisperDeskZH.Transcription
                     using (var response = await _httpClient.GetAsync(downloadUrl))
                     {
                         response.EnsureSuccessStatusCode();
-                        
+
                         using (var fileStream = File.Create(modelPath))
                         {
                             await response.Content.CopyToAsync(fileStream);
