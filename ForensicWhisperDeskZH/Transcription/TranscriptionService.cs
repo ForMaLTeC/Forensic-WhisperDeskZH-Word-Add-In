@@ -23,6 +23,7 @@ namespace ForensicWhisperDeskZH.Transcription
     /// </summary>
     internal class TranscriptionService : ITranscriptionService
     {
+        #region Properties
         private readonly WhisperModelManager _modelManager;
         private static WhisperFactory _transcriptorFactory;
         private static TranscriptionSettings _settings;
@@ -45,12 +46,15 @@ namespace ForensicWhisperDeskZH.Transcription
         public bool IsTranscribing => _isTranscribing;
         private bool _isDisposed = false;
         private string _sessionId;
+        #endregion
 
+        #region Events
         // Events for notifying clients about transcription events
         public event EventHandler<TranscriptionEventArgs> TranscriptionStarted;
         public event EventHandler<TranscriptionEventArgs> TranscriptionStopped;
         public event EventHandler<TranscriptionResultEventArgs> TranscriptionResult;
         public event EventHandler<ErrorEventArgs> TranscriptionError; // Fix: Ensure the event matches the interface definition
+        #endregion
 
 
 
@@ -93,91 +97,8 @@ namespace ForensicWhisperDeskZH.Transcription
             }
         }
 
-        private void CreateWhisperFactory()
-        {
-            try
-            {
-                string whisperModelPath = $"ggml-{_settings.ModelType.ToString().ToLower()}.bin";
-                LoggingService.LogMessage($"TranscriptionService: Using Whisper model path: {whisperModelPath}", "TranscriptionService_init");
 
-                string modelPath = _modelManager.EnsureModelExistsAsync(
-                    whisperModelPath,
-                    _settings.ModelType == default(GgmlType) ? GgmlType.Base : _settings.ModelType
-                ).Result;
-
-                LoggingService.LogMessage($"TranscriptionService: Model path resolved to: {modelPath}", "TranscriptionService_init");
-                _transcriptorFactory = _modelManager.CreateFactory(modelPath);
-
-                // Create builder and processor
-                _transcriptorBuilder = _transcriptorFactory.CreateBuilder();
-                _transcriptor = CreateWhisperProcessor();
-            }
-            catch (Exception ex)
-            {
-                OnTranscriptionError(new ErrorEventArgs(ex));
-                throw;
-            }
-        }
-
-
-        /// <summary>
-        /// Creates a configured WhisperProcessor based on settings
-        /// </summary>
-        private WhisperProcessor CreateWhisperProcessor(string lastTranscribedText = null)
-        {
-            _transcriptorBuilder
-                .WithDuration(_settings.ChunkDuration)
-                .WithThreads(_settings.Threads)
-                .WithLanguage(_settings.Language)
-                .WithPrintProgress()
-                .WithPrintResults();
-
-            if (_settings.TranslateToEnglish)
-            {
-                _transcriptorBuilder.WithTranslate();
-            }
-
-            if (_settings.Temperature > 0)
-            {
-                _transcriptorBuilder.WithTemperature(_settings.Temperature);
-            }
-
-            if(lastTranscribedText != null)
-            {
-                _transcriptorBuilder.WithPrompt(lastTranscribedText);
-            }
-
-            // Configure sampling strategy
-            if (_settings.UseGreedyStrategy)
-            {
-                _transcriptorBuilder.WithGreedySamplingStrategy();
-            }
-            else
-            {
-                var beamSearchBuilder = (BeamSearchSamplingStrategyBuilder)_transcriptorBuilder.WithBeamSearchSamplingStrategy();
-                beamSearchBuilder.WithBeamSize(_settings.BeamSize);
-            }
-
-            // Add additional options for better quality
-            _transcriptorBuilder
-                .WithNoSpeechThreshold(0.6f)
-                .WithTokenTimestamps()
-                .WithProbabilities();
-
-            return _transcriptorBuilder.Build();
-        }
-
-        /// <summary>
-        /// Changes the language used for transcription
-        /// </summary>
-        public void ChangeLanguage(string language)
-        {
-            if (_transcriptor != null && !string.IsNullOrEmpty(language))
-            {
-                _settings.Language = language;
-                _transcriptor.ChangeLanguage(language);
-            }
-        }
+        #region Transcription Methods
 
         /// <summary>
         /// Toggles transcription on or off
@@ -254,63 +175,13 @@ namespace ForensicWhisperDeskZH.Transcription
             }
         }
 
-        private void CreateAudioCapture(int deviceNumber)
+        /// <summary>
+        /// Stops the active transcription
+        /// </summary>
+        public void StopTranscription()
         {
-            // Initialize audio capture and processing
-            _audioCapture = new NAudioCapture(deviceNumber);
-
-            // Create buffer processor
-            var bytesPerMs = _waveFormat.AverageBytesPerSecond / 1000;
-            _audioProcessor = new AudioBufferProcessor(
-                bytesPerMs,
-                _settings.ChunkDuration,
-                _settings.SilenceThreshold);
-
-            // Connect events
-            _audioCapture.AudioDataAvailable += OnAudioDataAvailable;
-            _audioProcessor.ChunkReady += OnAudioChunkReady;
-        }
-
-        public void ChangeChunkDuration(double chunkDuration)
-        {
-            _settings.ChunkDuration = TimeSpan.FromSeconds(chunkDuration);
-        }
-
-        public void ChangeSilenceThreshold(double overlapDuration)
-        {
-            _settings.SilenceThreshold = TimeSpan.FromSeconds(overlapDuration);
-        }
-
-        private void OnAudioDataAvailable(object sender, AudioDataEventArgs e)
-        {
-            _audioProcessor.AddAudioData(e.AudioData.Span);
-        }
-
-        private void OnAudioChunkReady(object sender, ProcessedAudioEventArgs e)
-        {
-            if (_cancellationTokenSource?.IsCancellationRequested == true)
-                return;
-
-            try
-            {
-                // PROBLEM: Creating new processor instances for each chunk
-                // This creates new state and can confuse Whisper
-
-                // FIXED: Reuse the existing processor or create a simpler approach
-                var transcriptionTask = TranscribeChunkDirectlyAsync(
-                    e.AudioData,
-                    _sessionId,
-                    _cancellationTokenSource?.Token ?? CancellationToken.None);
-
-                lock (_taskLock)
-                {
-                    _transcriptionTasks.Enqueue(transcriptionTask);
-                }
-            }
-            catch (Exception ex)
-            {
-                HandleTranscriptionError(ex);
-            }
+            Task.Run(async () => await StopTranscriptionInternalAsync());
+            LoggingService.PlayTranscriptionStateChangeSound(); 
         }
 
         /// <summary>
@@ -389,6 +260,307 @@ namespace ForensicWhisperDeskZH.Transcription
                 System.Diagnostics.Debug.WriteLine($"TranscriptionService: Temp file saved for debugging: {tempFile}");
             }
         }
+        private async Task ProcessCompletedTranscriptionsAsync(Action<string> action, CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                Task<TranscriptionResult> currentTask = null;
+
+                lock (_taskLock)
+                {
+                    if (_transcriptionTasks.Count > 0)
+                    {
+                        currentTask = _transcriptionTasks.Peek();
+                    }
+                }
+
+                if (currentTask != null)
+                {
+                    try
+                    {
+                        // Wait for this task to complete
+                        var result = await currentTask;
+
+                        // Remove the task from the queue
+                        lock (_taskLock)
+                        {
+                            _transcriptionTasks.Dequeue();
+                        }
+
+                        // Process the results
+                        if (!string.IsNullOrWhiteSpace(result.FullText))
+                        {
+                            // Add to full transcript
+                            _fullTranscriptBuilder.Append(result.FullText + " ");
+
+                            // Send text to callback
+                            action?.Invoke(result.IncrementalText);
+
+                            // Raise events for each segment
+                            foreach (var segment in result.Segments)
+                            {
+                                OnTranscriptionResult(new TranscriptionResultEventArgs(
+                                    segment.Text,
+                                    segment.Start,
+                                    segment.End,
+                                    segment.SessionId));
+                            }
+                        }
+
+                        // Reset error count on success
+                        _errorCount = 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Remove the failed task
+                        lock (_taskLock)
+                        {
+                            _transcriptionTasks.Dequeue();
+                        }
+
+                        HandleTranscriptionError(ex);
+                    }
+                }
+                else
+                {
+                    // No tasks to process right now, wait a bit
+                    await Task.Delay(100, cancellationToken);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Internal implementation of stop transcription
+        /// </summary>
+        private async Task StopTranscriptionInternalAsync()
+        {
+            if (!_isTranscribing)
+                return;
+
+            // Set the flag to prevent new tasks
+            _isTranscribing = false;
+
+            try
+            {
+                // Cancel ongoing operations first
+                _cancellationTokenSource?.Cancel();
+
+                // Stop audio capture immediately
+                _audioCapture?.StopCapture();
+                _audioProcessor?.Stop();
+
+                // Wait for pending tasks with timeout - make this more robust
+                var pendingTasks = new List<Task<TranscriptionResult>>();
+                lock (_taskLock)
+                {
+                    while (_transcriptionTasks.Count > 0)
+                    {
+                        pendingTasks.Add(_transcriptionTasks.Dequeue());
+                    }
+                }
+
+                if (pendingTasks.Count > 0)
+                {
+                    try
+                    {
+                        var allTasksCompletion = Task.WhenAll(pendingTasks);
+                        var timeout = Task.Delay(3000); // Reduced timeout
+                        var completedTask = await Task.WhenAny(allTasksCompletion, timeout);
+                        
+                        if (completedTask == timeout)
+                        {
+                            System.Diagnostics.Debug.WriteLine("TranscriptionService: Timeout waiting for tasks to complete");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error waiting for tasks: {ex.Message}");
+                    }
+                }
+
+                // Notify that transcription has stopped
+                OnTranscriptionStopped(new TranscriptionEventArgs(_sessionId, _fullTranscriptBuilder.ToString()));
+            }
+            catch (Exception ex)
+            {
+                OnTranscriptionError(new ErrorEventArgs(ex));
+            }
+            finally
+            {
+                // Reset state
+                _fullTranscriptBuilder.Clear();
+
+                // Clean up resources with proper disposal order
+                try
+                {
+                    _audioCapture?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error disposing audio capture: {ex.Message}");
+                }
+                finally
+                {
+                    _audioCapture = null;
+                }
+
+                try
+                {
+                    _audioProcessor?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error disposing audio processor: {ex.Message}");
+                }
+                finally
+                {
+                    _audioProcessor = null;
+                }
+
+                try
+                {
+                    _cancellationTokenSource?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error disposing cancellation token: {ex.Message}");
+                }
+                finally
+                {
+                    _cancellationTokenSource = null;
+                }
+            }
+        }
+        #endregion
+
+        #region Whisper.Net Related Methods
+        /// <summary>
+        /// Whisper factory creation and model loading
+        /// </summary>
+        private void CreateWhisperFactory()
+        {
+            try
+            {
+                string whisperModelPath = $"ggml-{_settings.ModelType.ToString().ToLower()}.bin";
+                LoggingService.LogMessage($"TranscriptionService: Using Whisper model path: {whisperModelPath}", "TranscriptionService_init");
+
+                string modelPath = _modelManager.EnsureModelExistsAsync(
+                    whisperModelPath,
+                    _settings.ModelType == default(GgmlType) ? GgmlType.Base : _settings.ModelType
+                ).Result;
+
+                LoggingService.LogMessage($"TranscriptionService: Model path resolved to: {modelPath}", "TranscriptionService_init");
+                _transcriptorFactory = _modelManager.CreateFactory(modelPath);
+
+                // Create builder and processor
+                _transcriptorBuilder = _transcriptorFactory.CreateBuilder();
+                _transcriptor = CreateWhisperProcessor();
+            }
+            catch (Exception ex)
+            {
+                OnTranscriptionError(new ErrorEventArgs(ex));
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Creates a configured WhisperProcessor based on settings
+        /// </summary>
+        private WhisperProcessor CreateWhisperProcessor(string lastTranscribedText = null)
+        {
+            _transcriptorBuilder
+                .WithDuration(_settings.ChunkDuration)
+                .WithThreads(_settings.Threads)
+                .WithLanguage(_settings.Language)
+                .WithPrintProgress()
+                .WithPrintResults();
+
+            if (_settings.TranslateToEnglish)
+            {
+                _transcriptorBuilder.WithTranslate();
+            }
+
+            if (_settings.Temperature > 0)
+            {
+                _transcriptorBuilder.WithTemperature(_settings.Temperature);
+            }
+
+            if (lastTranscribedText != null)
+            {
+                _transcriptorBuilder.WithPrompt(lastTranscribedText);
+            }
+
+            // Configure sampling strategy
+            if (_settings.UseGreedyStrategy)
+            {
+                _transcriptorBuilder.WithGreedySamplingStrategy();
+            }
+            else
+            {
+                var beamSearchBuilder = (BeamSearchSamplingStrategyBuilder)_transcriptorBuilder.WithBeamSearchSamplingStrategy();
+                beamSearchBuilder.WithBeamSize(_settings.BeamSize);
+            }
+
+            // Add additional options for better quality
+            _transcriptorBuilder
+                .WithNoSpeechThreshold(0.6f)
+                .WithTokenTimestamps()
+                .WithProbabilities();
+
+            return _transcriptorBuilder.Build();
+        }
+
+        #endregion
+
+        #region Audio Methods
+        private void CreateAudioCapture(int deviceNumber)
+        {
+            // Initialize audio capture and processing
+            _audioCapture = new NAudioCapture(deviceNumber);
+
+            // Create buffer processor
+            var bytesPerMs = _waveFormat.AverageBytesPerSecond / 1000;
+            _audioProcessor = new AudioBufferProcessor(
+                bytesPerMs,
+                _settings.ChunkDuration,
+                _settings.SilenceThreshold);
+
+            // Connect events
+            _audioCapture.AudioDataAvailable += OnAudioDataAvailable;
+            _audioProcessor.ChunkReady += OnAudioChunkReady;
+        }
+
+        private void OnAudioDataAvailable(object sender, AudioDataEventArgs e)
+        {
+            _audioProcessor.AddAudioData(e.AudioData.Span);
+        }
+
+        private void OnAudioChunkReady(object sender, ProcessedAudioEventArgs e)
+        {
+            if (_cancellationTokenSource?.IsCancellationRequested == true)
+                return;
+
+            try
+            {
+                // PROBLEM: Creating new processor instances for each chunk
+                // This creates new state and can confuse Whisper
+
+                // FIXED: Reuse the existing processor or create a simpler approach
+                var transcriptionTask = TranscribeChunkDirectlyAsync(
+                    e.AudioData,
+                    _sessionId,
+                    _cancellationTokenSource?.Token ?? CancellationToken.None);
+
+                lock (_taskLock)
+                {
+                    _transcriptionTasks.Enqueue(transcriptionTask);
+                }
+            }
+            catch (Exception ex)
+            {
+                HandleTranscriptionError(ex);
+            }
+        }
 
         private async Task<int> ProcessAudioChunk(string tempFile, int segmentCount, List<string> segmentTexts, List<TranscriptionSegment> resultSegments, string sessionId)
         {
@@ -423,7 +595,9 @@ namespace ForensicWhisperDeskZH.Transcription
             }
             return 1;
         }
+        #endregion
 
+        #region Utility Methods
         /// <summary>
         /// This Method detects if a audio file contains a voice or not using WebRTC VAD.
         /// </summary>
@@ -620,15 +794,6 @@ namespace ForensicWhisperDeskZH.Transcription
             }
         }
 
-        public void ChangeModelType(GgmlType modelType)
-        {
-            if (_transcriptor != null && modelType != default(GgmlType))
-            {
-                _settings.ModelType = modelType;
-                _transcriptor = CreateWhisperProcessor();
-            }
-        }
-
         /// <summary>
         /// Diagnoses potential Whisper processing issues
         /// </summary>
@@ -686,199 +851,40 @@ namespace ForensicWhisperDeskZH.Transcription
             }
         }
 
-        private async Task ProcessCompletedTranscriptionsAsync(Action<string> action, CancellationToken cancellationToken)
+        #endregion
+
+        #region Settings
+        public void ChangeModelType(GgmlType modelType)
         {
-            while (!cancellationToken.IsCancellationRequested)
+            if (_transcriptor != null && modelType != default(GgmlType))
             {
-                Task<TranscriptionResult> currentTask = null;
-
-                lock (_taskLock)
-                {
-                    if (_transcriptionTasks.Count > 0)
-                    {
-                        currentTask = _transcriptionTasks.Peek();
-                    }
-                }
-
-                if (currentTask != null)
-                {
-                    try
-                    {
-                        // Wait for this task to complete
-                        var result = await currentTask;
-
-                        // Remove the task from the queue
-                        lock (_taskLock)
-                        {
-                            _transcriptionTasks.Dequeue();
-                        }
-
-                        // Process the results
-                        if (!string.IsNullOrWhiteSpace(result.FullText))
-                        {
-                            // Add to full transcript
-                            _fullTranscriptBuilder.Append(result.FullText + " ");
-
-                            // Send text to callback
-                            action?.Invoke(result.IncrementalText);
-
-                            // Raise events for each segment
-                            foreach (var segment in result.Segments)
-                            {
-                                OnTranscriptionResult(new TranscriptionResultEventArgs(
-                                    segment.Text,
-                                    segment.Start,
-                                    segment.End,
-                                    segment.SessionId));
-                            }
-                        }
-
-                        // Reset error count on success
-                        _errorCount = 0;
-                    }
-                    catch (Exception ex)
-                    {
-                        // Remove the failed task
-                        lock (_taskLock)
-                        {
-                            _transcriptionTasks.Dequeue();
-                        }
-
-                        HandleTranscriptionError(ex);
-                    }
-                }
-                else
-                {
-                    // No tasks to process right now, wait a bit
-                    await Task.Delay(100, cancellationToken);
-                }
+                _settings.ModelType = modelType;
+                _transcriptor = CreateWhisperProcessor();
             }
         }
 
-        private void HandleTranscriptionError(Exception ex)
+        public void ChangeChunkDuration(double chunkDuration)
         {
-            _errorCount++;
-            OnTranscriptionError(new ErrorEventArgs(ex)); // Pass only the exception object
+            _settings.ChunkDuration = TimeSpan.FromSeconds(chunkDuration);
+        }
 
-            // If we have too many consecutive errors, stop transcription
-            if (_errorCount >= MaxConsecutiveErrors)
+        public void ChangeSilenceThreshold(double overlapDuration)
+        {
+            _settings.SilenceThreshold = TimeSpan.FromSeconds(overlapDuration);
+        }
+
+        public void ChangeLanguage(string language)
+        {
+            if (_transcriptor != null && !string.IsNullOrEmpty(language))
             {
-                StopTranscription();
+                _settings.Language = language;
+                _transcriptor.ChangeLanguage(language);
             }
         }
 
-        /// <summary>
-        /// Stops the active transcription
-        /// </summary>
-        public void StopTranscription()
-        {
-            Task.Run(async () => await StopTranscriptionInternalAsync());
-            LoggingService.PlayTranscriptionStateChangeSound(); 
-        }
+        #endregion
 
-        /// <summary>
-        /// Internal implementation of stop transcription
-        /// </summary>
-        private async Task StopTranscriptionInternalAsync()
-        {
-            if (!_isTranscribing)
-                return;
-
-            // Set the flag to prevent new tasks
-            _isTranscribing = false;
-
-            try
-            {
-                // Cancel ongoing operations first
-                _cancellationTokenSource?.Cancel();
-
-                // Stop audio capture immediately
-                _audioCapture?.StopCapture();
-                _audioProcessor?.Stop();
-
-                // Wait for pending tasks with timeout - make this more robust
-                var pendingTasks = new List<Task<TranscriptionResult>>();
-                lock (_taskLock)
-                {
-                    while (_transcriptionTasks.Count > 0)
-                    {
-                        pendingTasks.Add(_transcriptionTasks.Dequeue());
-                    }
-                }
-
-                if (pendingTasks.Count > 0)
-                {
-                    try
-                    {
-                        var allTasksCompletion = Task.WhenAll(pendingTasks);
-                        var timeout = Task.Delay(3000); // Reduced timeout
-                        var completedTask = await Task.WhenAny(allTasksCompletion, timeout);
-                        
-                        if (completedTask == timeout)
-                        {
-                            System.Diagnostics.Debug.WriteLine("TranscriptionService: Timeout waiting for tasks to complete");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error waiting for tasks: {ex.Message}");
-                    }
-                }
-
-                // Notify that transcription has stopped
-                OnTranscriptionStopped(new TranscriptionEventArgs(_sessionId, _fullTranscriptBuilder.ToString()));
-            }
-            catch (Exception ex)
-            {
-                OnTranscriptionError(new ErrorEventArgs(ex));
-            }
-            finally
-            {
-                // Reset state
-                _fullTranscriptBuilder.Clear();
-
-                // Clean up resources with proper disposal order
-                try
-                {
-                    _audioCapture?.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error disposing audio capture: {ex.Message}");
-                }
-                finally
-                {
-                    _audioCapture = null;
-                }
-
-                try
-                {
-                    _audioProcessor?.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error disposing audio processor: {ex.Message}");
-                }
-                finally
-                {
-                    _audioProcessor = null;
-                }
-
-                try
-                {
-                    _cancellationTokenSource?.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error disposing cancellation token: {ex.Message}");
-                }
-                finally
-                {
-                    _cancellationTokenSource = null;
-                }
-            }
-        }
-
+        #region Eventhandlers
         // Event raising methods
         protected virtual void OnTranscriptionStarted(TranscriptionEventArgs e)
         {
@@ -899,6 +905,19 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             TranscriptionError?.Invoke(this, e);
         }
+
+        private void HandleTranscriptionError(Exception ex)
+        {
+            _errorCount++;
+            OnTranscriptionError(new ErrorEventArgs(ex)); // Pass only the exception object
+
+            // If we have too many consecutive errors, stop transcription
+            if (_errorCount >= MaxConsecutiveErrors)
+            {
+                StopTranscription();
+            }
+        }
+        #endregion
 
         /// <summary>
         /// Disposes resources used by the service
