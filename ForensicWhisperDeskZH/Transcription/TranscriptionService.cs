@@ -57,7 +57,6 @@ namespace ForensicWhisperDeskZH.Transcription
         #endregion
 
 
-
         /// <summary>
         /// Creates a new instance of the transcription service
         /// </summary>
@@ -97,7 +96,6 @@ namespace ForensicWhisperDeskZH.Transcription
             }
         }
 
-
         #region Transcription Methods
 
         /// <summary>
@@ -115,7 +113,6 @@ namespace ForensicWhisperDeskZH.Transcription
                 StartTranscription(action, deviceNumber);
             }
         }
-
 
         /// <summary>
         /// Starts transcription from the specified microphone
@@ -187,10 +184,7 @@ namespace ForensicWhisperDeskZH.Transcription
         /// <summary>
         /// Transcribes an audio chunk directly without creating new processor instances
         /// </summary>
-        private async Task<TranscriptionResult> TranscribeChunkDirectlyAsync(
-            MemoryStream audioBuffer,
-            string sessionId,
-            CancellationToken cancellationToken)
+        private async Task<TranscriptionResult> TranscribeChunkDirectlyAsync(MemoryStream audioBuffer,string sessionId,CancellationToken cancellationToken)
         {
             // Validate input buffer
             if (audioBuffer == null || audioBuffer.Length == 0)
@@ -260,6 +254,10 @@ namespace ForensicWhisperDeskZH.Transcription
                 System.Diagnostics.Debug.WriteLine($"TranscriptionService: Temp file saved for debugging: {tempFile}");
             }
         }
+
+        /// <summary>
+        /// This Task handles the Insertion of completed transcription results into the WordDcoument
+        /// </summary>
         private async Task ProcessCompletedTranscriptionsAsync(Action<string> action, CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -302,8 +300,7 @@ namespace ForensicWhisperDeskZH.Transcription
                                 OnTranscriptionResult(new TranscriptionResultEventArgs(
                                     segment.Text,
                                     segment.Start,
-                                    segment.End,
-                                    segment.SessionId));
+                                    segment.End));
                             }
                         }
 
@@ -464,7 +461,9 @@ namespace ForensicWhisperDeskZH.Transcription
         }
 
         /// <summary>
-        /// Creates a configured WhisperProcessor based on settings
+        /// Creates a configured WhisperProcessor based on settings using the Transcriptor Builder
+        /// The Whisper Processor is our Interface to Whipsers capabilites
+        /// A Whiper Processor, creates and manages Instances of the Model
         /// </summary>
         private WhisperProcessor CreateWhisperProcessor(string lastTranscribedText = null)
         {
@@ -513,6 +512,11 @@ namespace ForensicWhisperDeskZH.Transcription
         #endregion
 
         #region Audio Methods
+
+        /// <summary>
+        /// Creates and configures audio capture from the specified device
+        /// To do So it creates a NAudioCapture instance and an AudioBufferProcessor instance
+        /// </summary>
         private void CreateAudioCapture(int deviceNumber)
         {
             // Initialize audio capture and processing
@@ -530,11 +534,25 @@ namespace ForensicWhisperDeskZH.Transcription
             _audioProcessor.ChunkReady += OnAudioChunkReady;
         }
 
+        /// <summary>
+        /// When new Audio Data becomes available, give this data to the AudioProcessor.
+        /// </summary>
+        /// <param name="sender">The source of the event, typically the object providing the audio data.</param>
+        /// <param name="e">An <see cref="AudioDataEventArgs"/> instance containing the audio data.</param>
         private void OnAudioDataAvailable(object sender, AudioDataEventArgs e)
         {
             _audioProcessor.AddAudioData(e.AudioData.Span);
         }
 
+
+        /// <summary>
+        /// Handles the event triggered when a new audio chunk is ready for processing.
+        /// </summary>
+        /// <remarks>This method processes audio chunks asynchronously by queuing transcription tasks.  If
+        /// a cancellation request is detected, the method exits without processing the audio chunk. Exceptions
+        /// encountered during processing are handled internally.</remarks>
+        /// <param name="sender">The source of the event, typically the object that raised the event.</param>
+        /// <param name="e">An instance of <see cref="ProcessedAudioEventArgs"/> containing the audio data to be processed.</param>
         private void OnAudioChunkReady(object sender, ProcessedAudioEventArgs e)
         {
             if (_cancellationTokenSource?.IsCancellationRequested == true)
@@ -562,6 +580,15 @@ namespace ForensicWhisperDeskZH.Transcription
             }
         }
 
+        /// <summary>
+        /// This Method loads the audio chunk from the disk and transcribes this chunk
+        /// </summary>
+        /// <param name="tempFile">The Temporary Audio Chunk File</param>
+        /// <param name="segmentCount"></param>
+        /// <param name="segmentTexts"></param>
+        /// <param name="resultSegments"></param>
+        /// <param name="sessionId"></param>
+        /// <returns></returns>
         private async Task<int> ProcessAudioChunk(string tempFile, int segmentCount, List<string> segmentTexts, List<TranscriptionSegment> resultSegments, string sessionId)
         {
             using (var fileStream = File.OpenRead(tempFile))

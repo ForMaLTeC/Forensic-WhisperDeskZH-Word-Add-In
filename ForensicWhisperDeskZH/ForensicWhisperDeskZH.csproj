@@ -346,7 +346,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Text\ConfigurationManager.cs" />
-    <Compile Include="Text\KeywordReplacement.cs" />
     <Compile Include="Text\LoggingService.cs" />
     <Compile Include="Text\TextBufferService.cs" />
     <Compile Include="TranscriptionSettings.cs" />
@@ -354,8 +353,9 @@
     <Compile Include="Transcription\ITranscriptionServiceProvider.cs" />
     <Compile Include="Transcription\TextProcessor.cs" />
     <Compile Include="Transcription\TranscriptionEventArgs.cs" />
-    <Compile Include="Transcription\TranscriptionProcessor.cs" />
+    <Compile Include="Transcription\TranscriptionResult.cs" />
     <Compile Include="Transcription\TranscriptionResultEventArgs.cs" />
+    <Compile Include="Transcription\TranscriptionSegment.cs" />
     <Compile Include="Transcription\TranscriptionService.cs" />
     <Compile Include="Transcription\WhisperModelManager.cs" />
     <Compile Include="Transcription\WhisperTranscriptionServiceProvider.cs" />

@@ -111,7 +111,7 @@ namespace ForensicWhisperDeskZH
             SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalSeconds.ToString(CultureInfo.InvariantCulture);
         }
 
-        private void LoadMicrophones()
+        private void LoadMicrophones(bool isRefresh = false)
         {
             if (ViewModel == null) return;
 
@@ -132,7 +132,7 @@ namespace ForensicWhisperDeskZH
                 }
 
                 // Set the default selected item to the first microphone in the list
-                if (MicrophoneCheckBox.Items.Count > 0)
+                if (MicrophoneCheckBox.Items.Count > 0 && !isRefresh)
                 {
                     MicrophoneCheckBox.Text = MicrophoneCheckBox.Items[0].Label;
                 }
@@ -295,6 +295,7 @@ namespace ForensicWhisperDeskZH
             if (selectedMicrophone?.Tag is int deviceNumber)
             {
                 ViewModel.SetDeviceNumber(deviceNumber);
+                LoadMicrophones(true);
             }
         }
 
