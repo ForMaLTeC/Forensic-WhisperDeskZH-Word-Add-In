@@ -29,7 +29,6 @@ namespace ForensicWhisperDeskZH.Audio
         private WebRtcVad _vad;
         private bool _vadInitialized = false;
         private readonly object _vadLock = new object();
-        private readonly Queue<byte[]> _voiceFrames = new Queue<byte[]>();
         private readonly int _silenceThresholdMs = 300; // 300ms of silence indicates word boundary
         private const int FRAME_SIZE_SAMPLES = 320; // 20ms at 16kHz
         private const int FRAME_SIZE_BYTES = FRAME_SIZE_SAMPLES * 2;

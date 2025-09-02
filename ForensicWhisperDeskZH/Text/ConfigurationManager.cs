@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Linq;
+using Newtonsoft.Json;
 
 namespace ForensicWhisperDeskZH.Common
 {

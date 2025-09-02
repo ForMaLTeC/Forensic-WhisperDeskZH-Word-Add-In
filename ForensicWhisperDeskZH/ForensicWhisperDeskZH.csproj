@@ -335,8 +335,8 @@
   -->
   <ItemGroup>
     <Compile Include="AddInViewModel.cs" />
-    <Compile Include="AudioDiagnosticTool.cs" />
     <Compile Include="Audio\AudioBufferProcessor.cs" />
+    <Compile Include="Audio\AudioDiagnosticTool.cs" />
     <Compile Include="Audio\IAudioCapture.cs" />
     <Compile Include="Audio\MemoryStreamPool.cs" />
     <Compile Include="Audio\MicrophoneDevice.cs" />
@@ -349,7 +349,6 @@
     <Compile Include="Text\ConfigurationManager.cs" />
     <Compile Include="Text\LoggingService.cs" />
     <Compile Include="Text\TextBufferService.cs" />
-    <Compile Include="TranscriptionSettings.cs" />
     <Compile Include="Transcription\ITranscriptionService.cs" />
     <Compile Include="Transcription\ITranscriptionServiceProvider.cs" />
     <Compile Include="Transcription\TextProcessor.cs" />
@@ -358,6 +357,7 @@
     <Compile Include="Transcription\TranscriptionResultEventArgs.cs" />
     <Compile Include="Transcription\TranscriptionSegment.cs" />
     <Compile Include="Transcription\TranscriptionService.cs" />
+    <Compile Include="Transcription\TranscriptionSettings.cs" />
     <Compile Include="Transcription\WhisperModelManager.cs" />
     <Compile Include="Transcription\WhisperTranscriptionServiceProvider.cs" />
     <Resource Include="runtimes\cuda\win-x64\ggml-base-whisper.dll">

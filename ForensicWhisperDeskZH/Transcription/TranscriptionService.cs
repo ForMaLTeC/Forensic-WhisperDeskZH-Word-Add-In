@@ -891,9 +891,9 @@ namespace ForensicWhisperDeskZH.Transcription
             _settings.ChunkDuration = TimeSpan.FromSeconds(chunkDuration);
         }
 
-        public void ChangeSilenceThreshold(double overlapDuration)
+        public void ChangeSilenceThreshold(int silenceThreshold)
         {
-            _settings.SilenceThreshold = TimeSpan.FromSeconds(overlapDuration);
+            _settings.SilenceThreshold = TimeSpan.FromSeconds(silenceThreshold);
         }
 
         public void ChangeLanguage(string language)

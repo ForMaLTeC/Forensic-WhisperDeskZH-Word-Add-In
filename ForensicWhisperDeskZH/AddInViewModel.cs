@@ -132,8 +132,8 @@ namespace ForensicWhisperDeskZH
 
                 // Create new service asynchronously but wait for completion
                 var task = _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings);
-                task.Wait(5000); // 5 second timeout
 
+                task.Wait(500); // 0.5 second timeout
                 if (task.IsCompleted)
                 {
                     _transcriptionService = task.Result;
@@ -413,6 +413,12 @@ namespace ForensicWhisperDeskZH
                 "it-IT",
                 "es-ES",
             };
+        }
+
+        internal void ChangeSilenceThreshold(int threshold)
+        {
+            _transcriptionSettings.SilenceThreshold = TimeSpan.FromSeconds(threshold);
+            _transcriptionService.ChangeSilenceThreshold(threshold);
         }
     }
 }
