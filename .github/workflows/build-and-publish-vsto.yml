@@ -278,7 +278,7 @@ jobs:
           'Content-Type' = 'application/zip'
         }
         
-        $packageUrl = "https://nuget.pkg.github.com/${{ github.repository_owner }}/upload"
+        $packageUrl = "https://nuget.pkg.github.com/${{ github.repository_owner }}/${{ APPLICATION_NAME }}/upload"
         Invoke-RestMethod -Uri $packageUrl -Method POST -Headers $headers -InFile $packageName
 
     - name: Create Release
