@@ -175,6 +175,7 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             Task.Run(async () => await StopTranscriptionInternalAsync());
             LoggingService.PlayTranscriptionStateChangeSound();
+            CleanTempDirectory();
         }
 
         /// <summary>
@@ -192,7 +193,7 @@ namespace ForensicWhisperDeskZH.Transcription
             System.Diagnostics.Debug.WriteLine($"TranscriptionService: Processing audio buffer with {audioBuffer.Length} bytes");
 
             // Create a temporary file for the WAV data
-            string tempFile = Path.Combine(Path.GetTempPath(), $"debug_audio_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav");
+            string tempFile = Path.Combine(Path.GetTempPath(), $"WhisperDesk_audio_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav");
 
             try
             {
@@ -621,6 +622,35 @@ namespace ForensicWhisperDeskZH.Transcription
         #endregion
 
         #region Utility Methods
+        /// <summary>
+        /// This Method Deletes all the audio chunks in the Temp Directory
+        /// </summary>
+        private void CleanTempDirectory()
+        {
+            try
+            {
+                var tempPath = Path.GetTempPath();
+                var tempFiles = Directory.GetFiles(tempPath, "WhisperDesk_audio_*.wav");
+                foreach (var file in tempFiles)
+                {
+                    try
+                    {
+                        File.Delete(file);
+                        System.Diagnostics.Debug.WriteLine($"TranscriptionService: Deleted temp file: {file}");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"TranscriptionService: Failed to delete temp file {file}: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error cleaning temp directory: {ex.Message}");
+            }
+
+        }
+
         /// <summary>
         /// This Method detects if a audio file contains a voice or not using WebRTC VAD.
         /// </summary>
