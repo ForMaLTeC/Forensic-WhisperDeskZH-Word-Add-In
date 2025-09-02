@@ -1,4 +1,5 @@
-﻿using ForensicWhisperDeskZH.Common;
+﻿using ForensicWhisperDeskZH.Audio;
+using ForensicWhisperDeskZH.Common;
 using ForensicWhisperDeskZH.Document;
 using ForensicWhisperDeskZH.Text;
 using ForensicWhisperDeskZH.Transcription;
@@ -121,18 +122,18 @@ namespace ForensicWhisperDeskZH
 
                 // Reset transcription settings to default
                 _transcriptionSettings.ResetTranscriptionSettings();
-                
+
                 // Dispose old service properly
                 _transcriptionService?.Dispose();
                 _transcriptionService = null;
-                
+
                 // Wait before creating new service
                 System.Threading.Thread.Sleep(500);
-                
+
                 // Create new service asynchronously but wait for completion
                 var task = _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings);
                 task.Wait(5000); // 5 second timeout
-                
+
                 if (task.IsCompleted)
                 {
                     _transcriptionService = task.Result;
@@ -174,7 +175,7 @@ namespace ForensicWhisperDeskZH
                     _listeningBuffer.Clear();
                 }
                 // Start transcription in listening mode
-                _transcriptionService.ToggleTranscription(HandleTranscribedTextListeningMode,_transcriptionSettings, _selectedDeviceNumber);
+                _transcriptionService.ToggleTranscription(HandleTranscribedTextListeningMode, _transcriptionSettings, _selectedDeviceNumber);
                 return true;
             }
             catch (Exception ex)
@@ -265,7 +266,7 @@ namespace ForensicWhisperDeskZH
                     LoggingService.PlayDictationModeChangeSound();
                     _triggerPhraseDetected = true;
                 }
-                if(currentBuffer.Contains("diktat beenden"))
+                if (currentBuffer.Contains("diktat beenden"))
                 {
                     _listeningBuffer.Clear();
                     LoggingService.PlayDictationModeChangeSound();
@@ -372,7 +373,7 @@ namespace ForensicWhisperDeskZH
 
                 _textBufferService?.Dispose();
                 _transcriptionService?.Dispose();
-                
+
                 _isDisposed = true;
             }
             catch (Exception ex)

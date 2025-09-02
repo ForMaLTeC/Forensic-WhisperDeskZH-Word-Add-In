@@ -339,6 +339,7 @@
     <Compile Include="Audio\AudioBufferProcessor.cs" />
     <Compile Include="Audio\IAudioCapture.cs" />
     <Compile Include="Audio\MemoryStreamPool.cs" />
+    <Compile Include="Audio\MicrophoneDevice.cs" />
     <Compile Include="Audio\NAudioCapture.cs" />
     <Compile Include="Document\IDocumentService.cs" />
     <Compile Include="Document\WordDocumentService.cs" />

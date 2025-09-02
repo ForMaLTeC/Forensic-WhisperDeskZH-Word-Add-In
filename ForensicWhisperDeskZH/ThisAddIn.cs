@@ -1,8 +1,6 @@
-﻿using System;
-using Microsoft.Office.Tools.Word;
-using System.IO;
-using ForensicWhisperDeskZH.Common;
+﻿using ForensicWhisperDeskZH.Common;
 using ForensicWhisperDeskZH.Document;
+using System;
 
 namespace ForensicWhisperDeskZH
 {
@@ -27,7 +25,8 @@ namespace ForensicWhisperDeskZH
                     ConfigurationManager.LoadKeywordReplacements()).Result;
 
                 // Subscribe to view model events
-                AddInViewModel.ErrorOccurred += (s, message) => {
+                AddInViewModel.ErrorOccurred += (s, message) =>
+                {
                     LoggingService.LogError(message, null, "AddInViewModel");
                 };
 

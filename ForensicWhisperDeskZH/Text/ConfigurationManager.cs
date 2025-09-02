@@ -1,10 +1,8 @@
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Xml.Linq;
-using ForensicWhisperDeskZH.Text;
-using Newtonsoft.Json;
 
 namespace ForensicWhisperDeskZH.Common
 {
@@ -37,7 +35,7 @@ namespace ForensicWhisperDeskZH.Common
                 if (File.Exists(ConfigPath))
                 {
                     string json = File.ReadAllText(ConfigPath);
-                    return JsonConvert.DeserializeObject<TranscriptionSettings>(json) 
+                    return JsonConvert.DeserializeObject<TranscriptionSettings>(json)
                         ?? TranscriptionSettings.Default;
                 }
             }
@@ -46,7 +44,7 @@ namespace ForensicWhisperDeskZH.Common
                 // Log but continue with defaults
                 Globals.ThisAddIn.LogException(ex, "ConfigurationManager.LoadTranscriptionSettings");
             }
-            
+
             return TranscriptionSettings.Default;
         }
 
@@ -56,48 +54,48 @@ namespace ForensicWhisperDeskZH.Common
         public static Dictionary<string, string> LoadKeywordReplacements()
         {
             var replacements = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            
+
             try
             {
                 // Ensure the app data directory exists
                 Directory.CreateDirectory(AppDataDirectory);
-                
+
                 // Copy the Keywords.xml from the solution if it doesn't exist
                 EnsureKeywordsFileExists();
-                
+
                 if (File.Exists(KeywordPath))
                 {
                     var doc = XDocument.Load(KeywordPath);
                     var keywordReplacements = doc.Root?.Elements("Replacement");
-                    
+
                     if (keywordReplacements != null)
                     {
                         foreach (var replacement in keywordReplacements)
                         {
                             var word = replacement.Element("Word")?.Value?.Trim();
                             var symbol = replacement.Element("Symbol")?.Value;
-                            
+
                             if (!string.IsNullOrEmpty(word) && symbol != null)
                             {
                                 replacements[word] = symbol;
-                                Globals.ThisAddIn.LogMessage($"Loaded keyword replacement: '{word}' -> '{symbol}'", 
+                                Globals.ThisAddIn.LogMessage($"Loaded keyword replacement: '{word}' -> '{symbol}'",
                                     "ConfigurationManager.LoadKeywordReplacements");
                             }
                         }
                     }
                 }
-                
-                Globals.ThisAddIn.LogMessage($"Loaded {replacements.Count} keyword replacements", 
+
+                Globals.ThisAddIn.LogMessage($"Loaded {replacements.Count} keyword replacements",
                     "ConfigurationManager.LoadKeywordReplacements");
             }
             catch (Exception ex)
             {
                 Globals.ThisAddIn.LogException(ex, "ConfigurationManager.LoadKeywordReplacements");
             }
-            
+
             return replacements;
         }
-        
+
         /// <summary>
         /// Ensures the Keywords.xml file exists in the app data directory
         /// </summary>
@@ -110,18 +108,18 @@ namespace ForensicWhisperDeskZH.Common
                     // Try to find the Keywords.xml in the add-in directory
                     string addinDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
                     string sourceKeywordPath = Path.Combine(addinDirectory, "Keywords.xml");
-                    
+
                     if (File.Exists(sourceKeywordPath))
                     {
                         File.Copy(sourceKeywordPath, KeywordPath);
-                        Globals.ThisAddIn.LogMessage($"Copied Keywords.xml from {sourceKeywordPath} to {KeywordPath}", 
+                        Globals.ThisAddIn.LogMessage($"Copied Keywords.xml from {sourceKeywordPath} to {KeywordPath}",
                             "ConfigurationManager.EnsureKeywordsFileExists");
                     }
                     else
                     {
                         // Create a default Keywords.xml file
                         CreateDefaultKeywordsFile();
-                        Globals.ThisAddIn.LogMessage($"Created default Keywords.xml at {KeywordPath}", 
+                        Globals.ThisAddIn.LogMessage($"Created default Keywords.xml at {KeywordPath}",
                             "ConfigurationManager.EnsureKeywordsFileExists");
                     }
                 }
@@ -131,7 +129,7 @@ namespace ForensicWhisperDeskZH.Common
                 Globals.ThisAddIn.LogException(ex, "ConfigurationManager.EnsureKeywordsFileExists");
             }
         }
-        
+
         /// <summary>
         /// Creates a default Keywords.xml file
         /// </summary>
@@ -179,7 +177,7 @@ namespace ForensicWhisperDeskZH.Common
 
             File.WriteAllText(KeywordPath, defaultXml);
         }
-        
+
         /// <summary>
         /// Saves settings to disk
         /// </summary>

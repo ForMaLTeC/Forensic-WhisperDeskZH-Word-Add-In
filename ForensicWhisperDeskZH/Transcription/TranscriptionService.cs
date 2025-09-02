@@ -1,12 +1,10 @@
 using ForensicWhisperDeskZH.Audio;
 using ForensicWhisperDeskZH.Common;
-using ForensicWhisperDeskZH.Transcription;
 using NAudio.Wave;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Media;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -86,8 +84,6 @@ namespace ForensicWhisperDeskZH.Transcription
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
                 _modelManager.DownloadAllModelsAsync().Wait();
 #endif
-                //CreateWhisperFactory();
-
             }
             catch (Exception ex)
             {
@@ -129,7 +125,7 @@ namespace ForensicWhisperDeskZH.Transcription
             {
                 // Play warning sound instead of inserting text
                 LoggingService.PlayTranscriptionStateChangeSound();
-                
+
                 LoggingService.LogMessage("TranscriptionService: Starting transcription", "TranscriptionService_StartTranscription");
                 LoggingService.LogMessage($"TranscriptionService: Using device number {deviceNumber}", "TranscriptionService_StartTranscription");
                 LoggingService.LogMessage($"TranscriptionService: Using language '{language?.Name ?? _settings.Language}'", "TranscriptionService_StartTranscription");
@@ -178,13 +174,13 @@ namespace ForensicWhisperDeskZH.Transcription
         public void StopTranscription()
         {
             Task.Run(async () => await StopTranscriptionInternalAsync());
-            LoggingService.PlayTranscriptionStateChangeSound(); 
+            LoggingService.PlayTranscriptionStateChangeSound();
         }
 
         /// <summary>
         /// Transcribes an audio chunk directly without creating new processor instances
         /// </summary>
-        private async Task<TranscriptionResult> TranscribeChunkDirectlyAsync(MemoryStream audioBuffer,string sessionId,CancellationToken cancellationToken)
+        private async Task<TranscriptionResult> TranscribeChunkDirectlyAsync(MemoryStream audioBuffer, string sessionId, CancellationToken cancellationToken)
         {
             // Validate input buffer
             if (audioBuffer == null || audioBuffer.Length == 0)
@@ -363,7 +359,7 @@ namespace ForensicWhisperDeskZH.Transcription
                         var allTasksCompletion = Task.WhenAll(pendingTasks);
                         var timeout = Task.Delay(3000); // Reduced timeout
                         var completedTask = await Task.WhenAny(allTasksCompletion, timeout);
-                        
+
                         if (completedTask == timeout)
                         {
                             System.Diagnostics.Debug.WriteLine("TranscriptionService: Timeout waiting for tasks to complete");
@@ -637,7 +633,7 @@ namespace ForensicWhisperDeskZH.Transcription
                 using (var reader = new WaveFileReader(tempFilePath))
                 {
                     System.Diagnostics.Debug.WriteLine($"TranscriptionService: Analyzing audio for voice using WebRTC VAD - Duration: {reader.TotalTime.TotalSeconds:F2}s");
-                   
+
                     // WebRTC VAD works with specific sample rates: 8000, 16000, 32000, or 48000 Hz
                     // and requires specific frame sizes
                     if (reader.WaveFormat.SampleRate != 16000 || reader.WaveFormat.Channels != 1 || reader.WaveFormat.BitsPerSample != 16)

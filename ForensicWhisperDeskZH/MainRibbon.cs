@@ -1,13 +1,13 @@
-﻿using Microsoft.Office.Tools.Ribbon;
+﻿using ForensicWhisperDeskZH.Audio;
+using ForensicWhisperDeskZH.Common;
+using Microsoft.Office.Tools.Ribbon;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
-using ForensicWhisperDeskZH.Audio;
 using Whisper.net.Ggml;
-using ForensicWhisperDeskZH.Common;
 
 namespace ForensicWhisperDeskZH
 {

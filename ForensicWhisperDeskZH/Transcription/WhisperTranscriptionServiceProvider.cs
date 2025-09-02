@@ -1,8 +1,9 @@
+using NAudio.CoreAudioApi;
+using NAudio.Wave;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using NAudio.Wave;
-using NAudio.CoreAudioApi;
-using System; 
+using ForensicWhisperDeskZH.Audio;
 
 namespace ForensicWhisperDeskZH.Transcription
 {
@@ -17,20 +18,20 @@ namespace ForensicWhisperDeskZH.Transcription
         public List<MicrophoneDevice> GetAvailableMicrophones()
         {
             var devices = new List<MicrophoneDevice>();
-            
+
             try
             {
                 // Use WASAPI enumeration to match NAudioCapture behavior
                 var deviceEnumerator = new MMDeviceEnumerator();
                 var audioDevices = deviceEnumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
-                
+
                 for (int i = 0; i < audioDevices.Count; i++)
                 {
                     try
                     {
                         var device = audioDevices[i];
                         devices.Add(new MicrophoneDevice(i, device.FriendlyName));
-                        
+
                         // Debug logging to verify consistency
                         System.Diagnostics.Debug.WriteLine($"WASAPI Device {i}: {device.FriendlyName} (ID: {device.ID})");
                     }
@@ -43,7 +44,7 @@ namespace ForensicWhisperDeskZH.Transcription
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error enumerating WASAPI devices: {ex.Message}");
-                
+
                 // Fallback to WinMM if WASAPI fails
                 int deviceCount = WaveIn.DeviceCount;
                 for (int i = 0; i < deviceCount; i++)
@@ -60,10 +61,10 @@ namespace ForensicWhisperDeskZH.Transcription
                     }
                 }
             }
-            
+
             return devices;
         }
-        
+
         /// <summary>
         /// Creates a new transcription service with the specified settings
         /// </summary>

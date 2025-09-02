@@ -1,7 +1,7 @@
 using ForensicWhisperDeskZH.Common;
-using NAudio.Wave;
 using NAudio.CoreAudioApi;
 using NAudio.MediaFoundation;
+using NAudio.Wave;
 using System;
 
 namespace ForensicWhisperDeskZH.Audio
@@ -18,12 +18,12 @@ namespace ForensicWhisperDeskZH.Audio
         private readonly WaveFormat _desiredFormat;
         private MediaFoundationResampler _resampler;
         private BufferedWaveProvider _bufferedProvider; // Store reference to the BufferedWaveProvider
-        
+
         public bool IsCapturing => _isCapturing;
-        
+
         public event EventHandler<AudioDataEventArgs> AudioDataAvailable;
         public event EventHandler<AudioCaptureErrorEventArgs> Error;
-        
+
         /// <summary>
         /// Initializes a new instance of NAudio capture using WASAPI
         /// </summary>
@@ -35,35 +35,35 @@ namespace ForensicWhisperDeskZH.Audio
         {
             _deviceNumber = deviceNumber;
             _desiredFormat = new WaveFormat(sampleRate, bitsPerSample, channels);
-            
+
             InitializeWasapiCapture();
         }
-        
+
         private void InitializeWasapiCapture()
         {
             try
             {
                 // Initialize MediaFoundation for resampling
                 MediaFoundationApi.Startup();
-                
+
                 // Get the device using MMDeviceEnumerator
                 var deviceEnumerator = new MMDeviceEnumerator();
                 var devices = deviceEnumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
-                
+
                 if (_deviceNumber >= devices.Count || _deviceNumber < 0)
                 {
                     throw new ArgumentException($"Invalid device number: {_deviceNumber}. Available devices: 0-{devices.Count - 1}");
                 }
-                
+
                 var selectedDevice = devices[_deviceNumber];
-                
+
                 // Create WASAPI capture with the selected device - use shared mode with smaller buffer
                 _wasapiCapture = new WasapiCapture(selectedDevice, false, 20); // Use exclusive mode=false, 20ms buffer
-                
+
                 // Set up event handlers
                 _wasapiCapture.DataAvailable += OnDataAvailable;
                 _wasapiCapture.RecordingStopped += OnRecordingStopped;
-                
+
                 // Initialize resampler if formats don't match
                 if (!_wasapiCapture.WaveFormat.Equals(_desiredFormat))
                 {
@@ -76,7 +76,7 @@ namespace ForensicWhisperDeskZH.Audio
                     };
                     _resampler = new MediaFoundationResampler(_bufferedProvider, _desiredFormat);
                 }
-                
+
                 // Log the selected device for debugging
                 System.Diagnostics.Debug.WriteLine($"NAudioCapture: Using WASAPI device {_deviceNumber}: {selectedDevice.FriendlyName}");
                 System.Diagnostics.Debug.WriteLine($"NAudioCapture: Device format: {_wasapiCapture.WaveFormat}");
@@ -89,14 +89,14 @@ namespace ForensicWhisperDeskZH.Audio
                 throw;
             }
         }
-        
+
         public void StartCapture()
         {
             ThrowIfDisposed();
-            
+
             if (_isCapturing)
                 return;
-                
+
             try
             {
                 System.Diagnostics.Debug.WriteLine("NAudioCapture: Starting WASAPI recording...");
@@ -111,14 +111,14 @@ namespace ForensicWhisperDeskZH.Audio
                 OnError(ex);
             }
         }
-        
+
         public void StopCapture()
         {
             ThrowIfDisposed();
-            
+
             if (!_isCapturing)
                 return;
-                
+
             try
             {
                 System.Diagnostics.Debug.WriteLine("NAudioCapture: Stopping WASAPI recording...");
@@ -133,7 +133,7 @@ namespace ForensicWhisperDeskZH.Audio
                 OnError(ex);
             }
         }
-        
+
         private void OnDataAvailable(object sender, WaveInEventArgs e)
         {
             try
@@ -141,19 +141,19 @@ namespace ForensicWhisperDeskZH.Audio
                 if (e.BytesRecorded > 0)
                 {
                     System.Diagnostics.Debug.WriteLine($"NAudioCapture: Raw audio received - {e.BytesRecorded} bytes");
-                    
+
                     // Process audio format if necessary
                     byte[] processedBuffer = ProcessAudioFormat(e.Buffer, e.BytesRecorded);
-                    
+
                     if (processedBuffer != null && processedBuffer.Length > 0)
                     {
                         System.Diagnostics.Debug.WriteLine($"NAudioCapture: Processed buffer size: {processedBuffer.Length} bytes");
-                        
+
                         // Check for actual audio content (not just silence)
                         bool hasAudio = false;
                         int nonZeroSamples = 0;
                         short maxSample = 0;
-                        
+
                         for (int i = 0; i < Math.Min(processedBuffer.Length - 1, 1000); i += 2) // Check first 500 samples max
                         {
                             if (i + 1 < processedBuffer.Length)
@@ -167,9 +167,9 @@ namespace ForensicWhisperDeskZH.Audio
                                 }
                             }
                         }
-                        
+
                         System.Diagnostics.Debug.WriteLine($"NAudioCapture: Audio analysis - Non-zero samples: {nonZeroSamples}, Max sample: {maxSample}, Has audio: {hasAudio}");
-                        
+
                         AudioDataAvailable?.Invoke(this, new AudioDataEventArgs(processedBuffer));
                     }
                     else
@@ -189,7 +189,7 @@ namespace ForensicWhisperDeskZH.Audio
                 OnError(ex);
             }
         }
-        
+
         private byte[] ProcessAudioFormat(byte[] buffer, int bytesRecorded)
         {
             try
@@ -201,7 +201,7 @@ namespace ForensicWhisperDeskZH.Audio
                     Buffer.BlockCopy(buffer, 0, result, 0, bytesRecorded);
                     return result;
                 }
-                
+
                 // Use MediaFoundation resampler for format conversion
                 return ConvertAudioFormatWithMF(buffer, bytesRecorded);
             }
@@ -209,7 +209,7 @@ namespace ForensicWhisperDeskZH.Audio
             {
                 System.Diagnostics.Debug.WriteLine($"NAudioCapture: Error processing audio format: {ex.Message}");
                 LoggingService.LogError("Error processing audio format", ex, "NAudioCapture_ProcessAudioFormat");
-                
+
                 // Fallback: return original buffer truncated to recorded bytes if no conversion needed
                 if (_resampler == null)
                 {
@@ -217,34 +217,34 @@ namespace ForensicWhisperDeskZH.Audio
                     Buffer.BlockCopy(buffer, 0, fallback, 0, bytesRecorded);
                     return fallback;
                 }
-                
+
                 return null;
             }
         }
-        
+
         private byte[] ConvertAudioFormatWithMF(byte[] inputBuffer, int bytesRecorded)
         {
             try
             {
                 System.Diagnostics.Debug.WriteLine($"NAudioCapture: Converting audio format - Input: {bytesRecorded} bytes");
-                
+
                 // Check if we have the buffered provider
                 if (_bufferedProvider == null)
                 {
                     System.Diagnostics.Debug.WriteLine("NAudioCapture: ERROR - BufferedWaveProvider is null");
                     return null;
                 }
-                
+
                 // Add the input data to the buffered provider
                 _bufferedProvider.AddSamples(inputBuffer, 0, bytesRecorded);
-                
+
                 // Calculate expected output size
                 int outputSizeEstimate = (int)((bytesRecorded / (float)_wasapiCapture.WaveFormat.AverageBytesPerSecond) * _desiredFormat.AverageBytesPerSecond) + _desiredFormat.BlockAlign;
                 var outputBuffer = new byte[outputSizeEstimate];
 
                 // Read from the resampler
                 int bytesRead = _resampler.Read(outputBuffer, 0, outputSizeEstimate);
-                
+
                 System.Diagnostics.Debug.WriteLine($"NAudioCapture: Resampler output: {bytesRead} bytes from {outputSizeEstimate} estimated");
 
                 if (bytesRead > 0)
@@ -263,25 +263,25 @@ namespace ForensicWhisperDeskZH.Audio
                 throw;
             }
         }
-        
+
         private void OnRecordingStopped(object sender, StoppedEventArgs e)
         {
             System.Diagnostics.Debug.WriteLine("NAudioCapture: WASAPI recording stopped event received");
             _isCapturing = false;
-            
+
             if (e.Exception != null)
             {
                 System.Diagnostics.Debug.WriteLine($"NAudioCapture: WASAPI recording stopped with exception: {e.Exception.Message}");
                 OnError(e.Exception);
             }
         }
-        
+
         private void OnError(Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"NAudioCapture: WASAPI error occurred: {ex.Message}");
             Error?.Invoke(this, new AudioCaptureErrorEventArgs(ex));
         }
-        
+
         private void ThrowIfDisposed()
         {
             if (_isDisposed)
@@ -289,13 +289,13 @@ namespace ForensicWhisperDeskZH.Audio
                 throw new ObjectDisposedException(nameof(NAudioCapture));
             }
         }
-        
+
         public void Dispose()
         {
             if (!_isDisposed)
             {
                 System.Diagnostics.Debug.WriteLine("NAudioCapture: Disposing WASAPI capture...");
-                
+
                 try
                 {
                     if (_isCapturing)
@@ -304,16 +304,16 @@ namespace ForensicWhisperDeskZH.Audio
                         // Wait for capture to fully stop
                         System.Threading.Thread.Sleep(100);
                     }
-                    
+
                     // Dispose in correct order to avoid access violations
                     _resampler?.Dispose();
                     _resampler = null;
-                    
+
                     _wasapiCapture?.Dispose();
                     _wasapiCapture = null;
-                    
+
                     _bufferedProvider = null;
-                    
+
                     // Cleanup MediaFoundation
                     try
                     {
@@ -323,9 +323,9 @@ namespace ForensicWhisperDeskZH.Audio
                     {
                         // Ignore shutdown errors
                     }
-                    
+
                     _isDisposed = true;
-                    
+
                     System.Diagnostics.Debug.WriteLine("NAudioCapture: WASAPI capture disposed successfully");
                 }
                 catch (Exception ex)
@@ -341,10 +341,10 @@ namespace ForensicWhisperDeskZH.Audio
             {
                 var deviceEnumerator = new MMDeviceEnumerator();
                 var devices = deviceEnumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
-                
+
                 System.Diagnostics.Debug.WriteLine($"Testing microphone access for device {deviceNumber}");
                 System.Diagnostics.Debug.WriteLine($"Total capture devices: {devices.Count}");
-                
+
                 if (deviceNumber < devices.Count)
                 {
                     var selectedDevice = devices[deviceNumber];

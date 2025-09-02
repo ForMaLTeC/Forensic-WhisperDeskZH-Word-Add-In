@@ -1,5 +1,5 @@
-using System;
 using Microsoft.Office.Interop.Word;
+using System;
 
 namespace ForensicWhisperDeskZH.Document
 {
@@ -9,14 +9,14 @@ namespace ForensicWhisperDeskZH.Document
     public class WordDocumentService : IDocumentService
     {
         private readonly Application _application;
-        
+
         public event EventHandler<DocumentErrorEventArgs> Error;
-        
+
         public WordDocumentService(Application application)
         {
             _application = application ?? throw new ArgumentNullException(nameof(application));
         }
-        
+
         /// <summary>
         /// Checks if a document is available for text insertion
         /// </summary>
@@ -34,7 +34,7 @@ namespace ForensicWhisperDeskZH.Document
                 }
             }
         }
-        
+
         /// <summary>
         /// Inserts text at the current cursor position
         /// </summary>
@@ -42,12 +42,12 @@ namespace ForensicWhisperDeskZH.Document
         {
             if (string.IsNullOrEmpty(text))
                 return true;
-                
+
             try
             {
                 if (!IsDocumentAvailable)
                     return false;
-                    
+
                 _application.Selection.TypeText(text);
                 return true;
             }
@@ -58,7 +58,7 @@ namespace ForensicWhisperDeskZH.Document
                 return false;
             }
         }
-        
+
         protected virtual void OnError(DocumentErrorEventArgs e)
         {
             Error?.Invoke(this, e);

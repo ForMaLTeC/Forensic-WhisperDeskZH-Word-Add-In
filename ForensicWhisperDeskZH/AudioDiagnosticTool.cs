@@ -1,8 +1,7 @@
-﻿using NAudio.Wave;
-using NAudio.CoreAudioApi;
+﻿using NAudio.CoreAudioApi;
+using NAudio.Wave;
 using System;
 using System.IO;
-using System.Linq;
 
 namespace ForensicWhisperDeskZH.Audio
 {
@@ -17,7 +16,7 @@ namespace ForensicWhisperDeskZH.Audio
         public static void ListAudioDevices()
         {
             System.Diagnostics.Debug.WriteLine("=== Available WASAPI Audio Input Devices ===");
-            
+
             try
             {
                 var deviceEnumerator = new MMDeviceEnumerator();
@@ -37,7 +36,7 @@ namespace ForensicWhisperDeskZH.Audio
                         System.Diagnostics.Debug.WriteLine($"Device {i}: {device.FriendlyName}");
                         System.Diagnostics.Debug.WriteLine($"  ID: {device.ID}");
                         System.Diagnostics.Debug.WriteLine($"  State: {device.State}");
-                        
+
                         // Try to get format information
                         try
                         {
@@ -50,7 +49,7 @@ namespace ForensicWhisperDeskZH.Audio
                         {
                             System.Diagnostics.Debug.WriteLine($"  Format: Unable to determine - {formatEx.Message}");
                         }
-                        
+
                         System.Diagnostics.Debug.WriteLine("");
                     }
                     catch (Exception ex)

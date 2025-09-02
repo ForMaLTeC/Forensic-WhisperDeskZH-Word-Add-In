@@ -112,7 +112,7 @@ namespace ForensicWhisperDeskZH
         /// Default is false.
         /// </summary>
         public bool AutoPunctuation { get; set; } = false;
-        
+
         /// <summary>
         /// Gets a new instance of TranscriptionSettings with default values.
         /// </summary>

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using ForensicWhisperDeskZH.Audio;
 
 namespace ForensicWhisperDeskZH.Transcription
 {
@@ -12,25 +13,11 @@ namespace ForensicWhisperDeskZH.Transcription
         /// Gets a list of available microphone devices
         /// </summary>
         List<MicrophoneDevice> GetAvailableMicrophones();
-        
+
         /// <summary>
         /// Creates a transcription service with the specified settings
         /// </summary>
         Task<ITranscriptionService> CreateTranscriptionServiceAsync(TranscriptionSettings settings);
     }
-    
-    /// <summary>
-    /// Represents a microphone device
-    /// </summary>
-    public class MicrophoneDevice
-    {
-        public int DeviceNumber { get; }
-        public string Name { get; }
-        
-        public MicrophoneDevice(int deviceNumber, string name)
-        {
-            DeviceNumber = deviceNumber;
-            Name = name;
-        }
-    }
+
 }

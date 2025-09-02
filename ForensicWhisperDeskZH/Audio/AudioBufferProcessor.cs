@@ -1,12 +1,12 @@
+using ForensicWhisperDeskZH.Common;
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Concurrent;
 using WebRtcVadSharp;
-using System.Collections.Generic;
-using System.Linq;
-using ForensicWhisperDeskZH.Common;
 
 namespace ForensicWhisperDeskZH.Audio
 {
@@ -63,7 +63,7 @@ namespace ForensicWhisperDeskZH.Audio
 
             // Start the consumer task
             Task.Run(ConsumeChunksAsync);
-            
+
             System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Initialized with chunk duration: {chunkDuration.TotalMilliseconds}ms, overlap: {silenceThreshold.TotalMilliseconds}ms, bytes/ms: {bytesPerMillisecond}");
             LoggingService.LogMessage($"AudioBufferProcessor: Initialized with chunk duration: {chunkDuration.TotalMilliseconds}ms, overlap: {silenceThreshold.TotalMilliseconds}ms, bytes/ms: {bytesPerMillisecond}", "AudioBufferProcessor_init");
             // DON'T initialize VAD here - do it lazily when first needed
@@ -101,13 +101,13 @@ namespace ForensicWhisperDeskZH.Audio
         {
             if (audioData.Length == 0)
                 return;
-                
+
             lock (_bufferLock)
             {
                 // Convert ReadOnlySpan<byte> to byte array and write to active buffer
                 byte[] audioDataArray = audioData.ToArray();
                 _activeBuffer.Write(audioDataArray, 0, audioDataArray.Length);
-                
+
                 System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Added {audioData.Length} bytes, total buffer size: {_activeBuffer.Length}");
             }
         }
@@ -115,7 +115,7 @@ namespace ForensicWhisperDeskZH.Audio
         private void ProcessChunk(object state)
         {
             MemoryStream chunk = _streamPool.GetStream();
-            
+
             MemoryStream bufferToProcess;
             lock (_bufferLock)
             {
@@ -124,12 +124,12 @@ namespace ForensicWhisperDeskZH.Audio
                     _streamPool.ReturnStream(chunk);
                     return;
                 }
-                
+
                 // Swap active and processing buffers
                 bufferToProcess = _activeBuffer;
                 _activeBuffer = _processingBuffer;
                 _processingBuffer = bufferToProcess;
-                
+
                 System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Processing chunk with {bufferToProcess.Length} bytes");
             }
 
@@ -137,7 +137,7 @@ namespace ForensicWhisperDeskZH.Audio
             {
                 // Process buffer for word boundaries using VAD
                 var wordBoundaryChunks = DetectWordBoundaries(bufferToProcess);
-                
+
                 foreach (var wordChunk in wordBoundaryChunks)
                 {
                     if (wordChunk.Length > 0)
@@ -198,20 +198,20 @@ namespace ForensicWhisperDeskZH.Audio
 
             var chunks = new List<byte[]>();
             var currentChunk = new List<byte>();
-            
+
             audioBuffer.Position = 0;
             byte[] frameBuffer = new byte[FRAME_SIZE_BYTES];
             int consecutiveSilenceFrames = 0;
-            
+
             // Calculate minimum chunk size in bytes based on _chunkDuration
             int minChunkSizeBytes = (int)(_chunkDuration.TotalMilliseconds * _bytesPerMillisecond);
-            
+
             System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Minimum chunk size: {minChunkSizeBytes} bytes ({_chunkDuration.TotalMilliseconds}ms)");
-            
+
             while (audioBuffer.Position < audioBuffer.Length - FRAME_SIZE_BYTES)
             {
                 int bytesRead = audioBuffer.Read(frameBuffer, 0, FRAME_SIZE_BYTES);
-                
+
                 if (bytesRead == FRAME_SIZE_BYTES)
                 {
                     // Convert to samples for VAD
@@ -220,7 +220,7 @@ namespace ForensicWhisperDeskZH.Audio
                     {
                         samples[i] = BitConverter.ToInt16(frameBuffer, i * 2);
                     }
-                    
+
                     bool hasVoice;
                     try
                     {
@@ -233,10 +233,10 @@ namespace ForensicWhisperDeskZH.Audio
                         // Fall back to energy-based detection for this frame
                         hasVoice = CalculateRMSEnergy(frameBuffer) > 500.0;
                     }
-                    
+
                     // Always add frame to current chunk first
                     currentChunk.AddRange(frameBuffer);
-                    
+
                     if (hasVoice)
                     {
                         consecutiveSilenceFrames = 0;
@@ -244,11 +244,11 @@ namespace ForensicWhisperDeskZH.Audio
                     else
                     {
                         consecutiveSilenceFrames++;
-                        
+
                         // Only consider cutting the chunk if we've reached minimum duration AND have sustained silence
                         bool hasMinimumDuration = currentChunk.Count >= minChunkSizeBytes;
                         bool hasSufficientSilence = consecutiveSilenceFrames >= (_silenceThresholdMs / 20); // 20ms per frame
-                        
+
                         if (hasMinimumDuration && hasSufficientSilence)
                         {
                             // End current chunk if it has content
@@ -264,7 +264,7 @@ namespace ForensicWhisperDeskZH.Audio
                     }
                 }
             }
-            
+
             // Add remaining audio as final chunk only if it meets minimum size or is the only chunk
             if (currentChunk.Count > 0)
             {
@@ -276,7 +276,7 @@ namespace ForensicWhisperDeskZH.Audio
                 else
                 {
                     System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Discarding final chunk - too short: {currentChunk.Count} bytes (duration: {(double)currentChunk.Count / _bytesPerMillisecond:F0}ms)");
-                    
+
                     // If we have previous chunks, merge this small chunk with the last one
                     if (chunks.Count > 0)
                     {
@@ -293,7 +293,7 @@ namespace ForensicWhisperDeskZH.Audio
                     }
                 }
             }
-            
+
             return chunks;
         }
 
@@ -301,21 +301,21 @@ namespace ForensicWhisperDeskZH.Audio
         {
             var chunks = new List<byte[]>();
             var currentChunk = new List<byte>();
-            
+
             audioBuffer.Position = 0;
             byte[] frameBuffer = new byte[FRAME_SIZE_BYTES];
             int consecutiveLowEnergyFrames = 0;
             const double energyThreshold = 500.0;
             const int silenceFrameThreshold = 15; // ~300ms of silence
-            
+
             while (audioBuffer.Position < audioBuffer.Length - FRAME_SIZE_BYTES)
             {
                 int bytesRead = audioBuffer.Read(frameBuffer, 0, FRAME_SIZE_BYTES);
-                
+
                 if (bytesRead == FRAME_SIZE_BYTES)
                 {
                     double energy = CalculateRMSEnergy(frameBuffer);
-                    
+
                     if (energy > energyThreshold)
                     {
                         currentChunk.AddRange(frameBuffer);
@@ -324,7 +324,7 @@ namespace ForensicWhisperDeskZH.Audio
                     else
                     {
                         consecutiveLowEnergyFrames++;
-                        
+
                         if (consecutiveLowEnergyFrames >= silenceFrameThreshold)
                         {
                             if (currentChunk.Count > 0)
@@ -341,12 +341,12 @@ namespace ForensicWhisperDeskZH.Audio
                     }
                 }
             }
-            
+
             if (currentChunk.Count > 0)
             {
                 chunks.Add(currentChunk.ToArray());
             }
-            
+
             return chunks;
         }
 
@@ -354,20 +354,20 @@ namespace ForensicWhisperDeskZH.Audio
         {
             long sumSquares = 0;
             int sampleCount = frameBuffer.Length / 2;
-            
+
             for (int i = 0; i < frameBuffer.Length - 1; i += 2)
             {
                 short sample = BitConverter.ToInt16(frameBuffer, i);
                 sumSquares += (long)sample * sample;
             }
-            
+
             return Math.Sqrt((double)sumSquares / sampleCount);
         }
 
         private async Task ConsumeChunksAsync()
         {
             System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Consumer task started");
-            
+
             while (!_isDisposed)
             {
                 try
@@ -379,7 +379,7 @@ namespace ForensicWhisperDeskZH.Audio
                         try
                         {
                             System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Processing chunk with {chunk.Length} bytes");
-                            
+
                             // Create a copy that will be owned by the event receiver
                             MemoryStream chunkCopy = new MemoryStream();
                             chunk.Position = 0;
@@ -403,7 +403,7 @@ namespace ForensicWhisperDeskZH.Audio
                 catch (OperationCanceledException ex)
                 {
                     System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Consumer task cancelled");
-                    LoggingService.LogError("AudioBufferProcessor: Consumer task cancelled",ex , "AudioBufferProcessor_ConsumeChunksAsync");
+                    LoggingService.LogError("AudioBufferProcessor: Consumer task cancelled", ex, "AudioBufferProcessor_ConsumeChunksAsync");
                     break;
                 }
                 catch (Exception ex)
@@ -413,7 +413,7 @@ namespace ForensicWhisperDeskZH.Audio
                     await Task.Delay(100);
                 }
             }
-            
+
             System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Consumer task finished");
         }
 
@@ -422,7 +422,7 @@ namespace ForensicWhisperDeskZH.Audio
             if (!_isDisposed)
             {
                 System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Disposing...");
-                
+
                 _chunkTimer?.Dispose();
                 _cts?.Cancel();
                 _cts?.Dispose();

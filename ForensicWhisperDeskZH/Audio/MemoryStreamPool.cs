@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Concurrent;
 using System.IO;
 
@@ -11,7 +10,7 @@ namespace ForensicWhisperDeskZH.Audio
     {
         private readonly ConcurrentBag<MemoryStream> _pool = new ConcurrentBag<MemoryStream>();
         private readonly int _initialCapacity;
-        
+
         /// <summary>
         /// Creates a new MemoryStreamPool
         /// </summary>
@@ -20,7 +19,7 @@ namespace ForensicWhisperDeskZH.Audio
         {
             _initialCapacity = initialCapacity;
         }
-        
+
         /// <summary>
         /// Gets a MemoryStream from the pool or creates a new one
         /// </summary>
@@ -31,17 +30,17 @@ namespace ForensicWhisperDeskZH.Audio
                 stream.Position = 0;
                 return stream;
             }
-            
+
             return new MemoryStream(_initialCapacity);
         }
-        
+
         /// <summary>
         /// Returns a MemoryStream to the pool
         /// </summary>
         public void ReturnStream(MemoryStream stream)
         {
             if (stream == null) return;
-            
+
             try
             {
                 stream.Position = 0;

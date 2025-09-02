@@ -16,9 +16,9 @@ namespace ForensicWhisperDeskZH.Text
         private readonly Action<string> _insertAction;
         private bool _isRunning = false;
         private bool _isDisposed = false;
-        
+
         public event EventHandler<string> TextReady;
-        
+
         /// <summary>
         /// Creates a new text buffer service
         /// </summary>
@@ -30,7 +30,7 @@ namespace ForensicWhisperDeskZH.Text
             _insertAction = insertAction;
             _insertionTimer = new Timer(OnTimerElapsed, null, Timeout.Infinite, Timeout.Infinite);
         }
-        
+
         /// <summary>
         /// Starts the buffer service
         /// </summary>
@@ -38,14 +38,14 @@ namespace ForensicWhisperDeskZH.Text
         {
             if (_isDisposed)
                 throw new ObjectDisposedException(nameof(TextBufferService));
-                
+
             if (_isRunning)
                 return;
-                
+
             _isRunning = true;
             _insertionTimer.Change(0, (int)_insertionInterval.TotalMilliseconds);
         }
-        
+
         /// <summary>
         /// Stops the buffer service and flushes any pending text
         /// </summary>
@@ -53,14 +53,14 @@ namespace ForensicWhisperDeskZH.Text
         {
             if (!_isRunning)
                 return;
-                
+
             _isRunning = false;
             _insertionTimer.Change(Timeout.Infinite, Timeout.Infinite);
-            
+
             // Process any remaining text
             ProcessBuffer();
         }
-        
+
         /// <summary>
         /// Adds text to the buffer
         /// </summary>
@@ -77,7 +77,7 @@ namespace ForensicWhisperDeskZH.Text
                 _textBuffer.Append(text + " ");
             }
         }
-        
+
         private void OnTimerElapsed(object state)
         {
             if (_isRunning)
@@ -85,32 +85,32 @@ namespace ForensicWhisperDeskZH.Text
                 ProcessBuffer();
             }
         }
-        
+
         private void ProcessBuffer()
         {
             string textToProcess;
-            
+
             lock (_bufferLock)
             {
                 if (_textBuffer.Length == 0)
                     return;
-                    
+
                 textToProcess = _textBuffer.ToString();
                 _textBuffer.Clear();
             }
-            
+
             // Notify listeners
             TextReady?.Invoke(this, textToProcess);
-            
+
             // Call the insertion action if provided
             _insertAction?.Invoke(textToProcess);
         }
-        
+
         public void Dispose()
         {
             if (_isDisposed)
                 return;
-                
+
             Stop();
             _insertionTimer?.Dispose();
             _isDisposed = true;
