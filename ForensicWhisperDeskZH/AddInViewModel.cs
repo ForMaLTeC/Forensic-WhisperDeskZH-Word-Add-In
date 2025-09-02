@@ -134,6 +134,7 @@ namespace ForensicWhisperDeskZH
                 var task = _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings);
 
                 task.Wait(500); // 0.5 second timeout
+                
                 if (task.IsCompleted)
                 {
                     _transcriptionService = task.Result;
