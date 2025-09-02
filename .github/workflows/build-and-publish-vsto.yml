@@ -267,38 +267,19 @@ jobs:
         echo "FULL_PACKAGE_NAME=$fullPackageName" >> $env:GITHUB_OUTPUT
       id: create_full_package
 
-    # Alternative: Upload to GitHub Packages (Generic) - Use this instead if you prefer
-    - name: Upload to GitHub Packages (Container Registry)
+    - name: Upload to GitHub Package Registry
       run: |
         $packageName = "${{ steps.create_full_package.outputs.FULL_PACKAGE_NAME }}"
         $version = "${{ needs.build.outputs.version }}"
         
-        Write-Host "Uploading $packageName to GitHub Container Registry..."
-        
-        # Check file size
-        $fileSizeGB = (Get-Item $packageName).Length / 1GB
-        Write-Host "Package size: $([math]::Round($fileSizeGB, 2)) GB"
-        
-        try {
-          # Use GitHub's REST API directly instead of npm
-          $repoOwner = "${{ github.repository_owner }}"
-          $repoName = "${{ github.event.repository.name }}"
-          
-          # Create a release asset instead (supports large files)
-          $headers = @{
-            'Authorization' = 'Bearer ${{ secrets.GITHUB_TOKEN }}'
-            'Accept' = 'application/vnd.github.v3+json'
-          }
-          
-          # Upload as a package asset using GitHub's API
-          $uploadUrl = "https://uploads.github.com/repos/${{ github.repository }}/releases/assets"
-          
-          Write-Host "✅ Large package will be available via GitHub Releases"
-          Write-Host "📦 Package: $packageName ($([math]::Round($fileSizeGB, 2)) GB)"
-          
-        } catch {
-          Write-Warning "Package upload note: $($_.Exception.Message)"
+        # Upload using GitHub's Package API
+        $headers = @{
+          'Authorization' = 'Bearer ${{ secrets.GITHUB_TOKEN }}'
+          'Content-Type' = 'application/zip'
         }
+        
+        $packageUrl = "https://nuget.pkg.github.com/${{ github.repository_owner }}/upload"
+        Invoke-RestMethod -Uri $packageUrl -Method POST -Headers $headers -InFile $packageName
 
     - name: Create Release
       uses: actions/create-release@v1
