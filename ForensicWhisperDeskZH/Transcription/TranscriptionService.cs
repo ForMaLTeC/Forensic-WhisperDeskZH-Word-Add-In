@@ -182,6 +182,7 @@ namespace ForensicWhisperDeskZH.Transcription
         /// Transcribes an audio chunk directly without creating new processor instances
         /// </summary>
         private async Task<TranscriptionResult> TranscribeChunkDirectlyAsync(MemoryStream audioBuffer, string sessionId, CancellationToken cancellationToken)
+
         {
             // Validate input buffer
             if (audioBuffer == null || audioBuffer.Length == 0)
