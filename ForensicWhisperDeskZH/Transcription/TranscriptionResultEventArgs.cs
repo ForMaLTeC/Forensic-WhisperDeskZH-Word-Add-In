@@ -12,12 +12,11 @@ namespace ForensicWhisperDeskZH.Transcription
         public TimeSpan End { get; }
         public string SessionId { get; }
 
-        public TranscriptionResultEventArgs(string text, TimeSpan start, TimeSpan end, string sessionId)
+        public TranscriptionResultEventArgs(string text, TimeSpan start, TimeSpan end)
         {
             Text = text;
             Start = start;
             End = end;
-            SessionId = sessionId;
         }
     }
 }

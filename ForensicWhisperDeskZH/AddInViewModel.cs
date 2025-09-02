@@ -86,28 +86,6 @@ namespace ForensicWhisperDeskZH
             return viewModel;
         }
 
-        /// <summary>
-        /// Creates a new ViewModel with default implementations
-        /// </summary>
-        public AddInViewModel() : this(
-            new WhisperTranscriptionServiceProvider(),
-            new WordDocumentService(Globals.ThisAddIn.Application),
-            TranscriptionSettings.Default)
-        {
-            // For backwards compatibility, start initialization but don't wait
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await InitializeAsync();
-                    Globals.ThisAddIn.LogMessage("AddInViewModel initialized successfully.", "AddInViewModel_init");
-                }
-                catch (Exception ex)
-                {
-                    OnErrorOccurred($"Failed to initialize transcription service: {ex.Message}", ex);
-                }
-            });
-        }
 
         private async Task InitializeAsync()
         {
@@ -253,7 +231,6 @@ namespace ForensicWhisperDeskZH
             // Add text to the buffer service
             _textBufferService.AddText(text);
         }
-
 
         private void HandleTranscribedTextListeningMode(string text)
         {
@@ -411,7 +388,6 @@ namespace ForensicWhisperDeskZH
                 _transcriptionService.ChangeModelType(modelType);
             }
         }
-
 
         internal List<GgmlType> GetModelTypeList()
         {
