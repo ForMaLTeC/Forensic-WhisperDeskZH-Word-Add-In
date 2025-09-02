@@ -56,6 +56,7 @@ namespace ForensicWhisperDeskZH.Transcription
         public event EventHandler<ErrorEventArgs> TranscriptionError; // Fix: Ensure the event matches the interface definition
         #endregion
 
+
         /// <summary>
         /// Creates a new instance of the transcription service
         /// </summary>
@@ -542,6 +543,7 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             _audioProcessor.AddAudioData(e.AudioData.Span);
         }
+
 
         /// <summary>
         /// Handles the event triggered when a new audio chunk is ready for processing.
