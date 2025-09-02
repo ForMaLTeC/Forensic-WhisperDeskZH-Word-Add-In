@@ -267,7 +267,6 @@ jobs:
         echo "FULL_PACKAGE_NAME=$fullPackageName" >> $env:GITHUB_OUTPUT
       id: create_full_package
 
-
     # Alternative: Upload to GitHub Packages (Generic) - Use this instead if you prefer
     - name: Upload to GitHub Packages (Generic) - Alternative
       run: |
@@ -305,6 +304,7 @@ jobs:
           
         } catch {
           Write-Warning "Failed to upload to GitHub Packages (Generic): $($_.Exception.Message)"
+
         }
 
     - name: Create Release

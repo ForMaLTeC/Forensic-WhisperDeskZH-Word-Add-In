@@ -56,6 +56,8 @@ namespace ForensicWhisperDeskZH.Transcription
         public event EventHandler<ErrorEventArgs> TranscriptionError; // Fix: Ensure the event matches the interface definition
         #endregion
 
+
+
         /// <summary>
         /// Creates a new instance of the transcription service
         /// </summary>
@@ -95,7 +97,9 @@ namespace ForensicWhisperDeskZH.Transcription
             }
         }
 
+
         #region Transcription Methods
+
         /// <summary>
         /// Toggles transcription on or off
         /// </summary>
