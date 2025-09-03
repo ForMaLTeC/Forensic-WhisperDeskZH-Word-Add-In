@@ -20,7 +20,7 @@ namespace ForensicWhisperDeskZH.Transcription
         /// Gets or sets the duration of silence required to consider a word boundary.
         /// Default is 500 milliseconds.
         /// </summary>
-        public TimeSpan SilenceThreshold { get; set; } = TimeSpan.FromMilliseconds(500);
+        public TimeSpan SilenceThreshold { get; set; } = TimeSpan.FromSeconds(1);
 
 
         /// <summary>
@@ -126,7 +126,7 @@ namespace ForensicWhisperDeskZH.Transcription
         public void ResetTranscriptionSettings()
         {
             InsertionInterval = TimeSpan.FromMilliseconds(100);
-            SilenceThreshold = TimeSpan.FromSeconds(500);
+            SilenceThreshold = TimeSpan.FromSeconds(1);
             ChunkDuration = TimeSpan.FromSeconds(3);
             WaveFormat = new WaveFormat(16000, 16, 1);
             Threads = Environment.ProcessorCount;

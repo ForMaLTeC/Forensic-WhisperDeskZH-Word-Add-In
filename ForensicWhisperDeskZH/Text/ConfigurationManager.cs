@@ -15,17 +15,17 @@ namespace ForensicWhisperDeskZH.Common
     {
         private static readonly string ConfigPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "TranscriptionSystem",
+            "ForensicWhisperDeskZH",
             "config.json");
 
         private static readonly string KeywordPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FennecTranscriptionSystem",
+            "ForensicWhisperDeskZH",
             "Keywords.xml");
 
         private static readonly string AppDataDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FennecTranscriptionSystem");
+            "ForensicWhisperDeskZH");
 
         /// <summary>
         /// Loads settings from disk or creates default settings
@@ -44,7 +44,7 @@ namespace ForensicWhisperDeskZH.Common
             catch (Exception ex)
             {
                 // Log but continue with defaults
-                Globals.ThisAddIn.LogException(ex, "ConfigurationManager.LoadTranscriptionSettings");
+                LoggingService.LogError(ex.Message, ex, "ConfigurationManager.LoadTranscriptionSettings");
             }
 
             return TranscriptionSettings.Default;
@@ -80,19 +80,19 @@ namespace ForensicWhisperDeskZH.Common
                             if (!string.IsNullOrEmpty(word) && symbol != null)
                             {
                                 replacements[word] = symbol;
-                                Globals.ThisAddIn.LogMessage($"Loaded keyword replacement: '{word}' -> '{symbol}'",
+                                LoggingService.LogMessage($"Loaded keyword replacement: '{word}' -> '{symbol}'",
                                     "ConfigurationManager.LoadKeywordReplacements");
                             }
                         }
                     }
                 }
 
-                Globals.ThisAddIn.LogMessage($"Loaded {replacements.Count} keyword replacements",
+                LoggingService.LogMessage($"Loaded {replacements.Count} keyword replacements",
                     "ConfigurationManager.LoadKeywordReplacements");
             }
             catch (Exception ex)
             {
-                Globals.ThisAddIn.LogException(ex, "ConfigurationManager.LoadKeywordReplacements");
+                LoggingService.LogError(ex.Message, ex, "ConfigurationManager.LoadKeywordReplacements");
             }
 
             return replacements;
@@ -114,21 +114,21 @@ namespace ForensicWhisperDeskZH.Common
                     if (File.Exists(sourceKeywordPath))
                     {
                         File.Copy(sourceKeywordPath, KeywordPath);
-                        Globals.ThisAddIn.LogMessage($"Copied Keywords.xml from {sourceKeywordPath} to {KeywordPath}",
+                        LoggingService.LogMessage($"Copied Keywords.xml from {sourceKeywordPath} to {KeywordPath}",
                             "ConfigurationManager.EnsureKeywordsFileExists");
                     }
                     else
                     {
                         // Create a default Keywords.xml file
                         CreateDefaultKeywordsFile();
-                        Globals.ThisAddIn.LogMessage($"Created default Keywords.xml at {KeywordPath}",
+                        LoggingService.LogMessage($"Created default Keywords.xml at {KeywordPath}",
                             "ConfigurationManager.EnsureKeywordsFileExists");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Globals.ThisAddIn.LogException(ex, "ConfigurationManager.EnsureKeywordsFileExists");
+                LoggingService.LogError(ex.Message, ex, "ConfigurationManager.EnsureKeywordsFileExists");
             }
         }
 
@@ -193,7 +193,7 @@ namespace ForensicWhisperDeskZH.Common
             }
             catch (Exception ex)
             {
-                Globals.ThisAddIn.LogException(ex, "ConfigurationManager.SaveTranscriptionSettings");
+                LoggingService.LogError(ex.Message, ex, "ConfigurationManager.SaveTranscriptionSettings");
             }
         }
     }

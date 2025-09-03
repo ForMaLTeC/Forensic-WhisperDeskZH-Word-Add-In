@@ -33,8 +33,10 @@ namespace ForensicWhisperDeskZH
         private string _lastTextAdded = string.Empty;
 
         public TranscriptionSettings _transcriptionSettings { get; }
-        public bool IsTranscribing => _transcriptionService?.IsTranscribing ?? false;
+        //public bool IsTranscribing => _transcriptionService?.IsTranscribing ?? false;
 
+
+        public event EventHandler<bool> OnDictationStateChanged;
         public event EventHandler<string> ErrorOccurred;
 
         private StringBuilder _listeningBuffer = new StringBuilder();
@@ -83,7 +85,7 @@ namespace ForensicWhisperDeskZH
             var viewModel = new AddInViewModel(transcriptionProvider, documentService, settings, keywordReplacements);
             await viewModel.InitializeAsync();
 
-            Globals.ThisAddIn.LogMessage("AddInViewModel initialized successfully.", "AddInViewModel_init");
+            LoggingService.LogMessage("AddInViewModel initialized successfully.", "AddInViewModel_init");
             return viewModel;
         }
 
@@ -155,6 +157,18 @@ namespace ForensicWhisperDeskZH
 
         }
 
+        public void ToggleListeningMode(bool isListening)
+        {
+            if (isListening)
+            {
+                StopListeningMode();
+            }
+            else
+            {
+                StopListeningMode();
+            }
+        }
+
         /// <summary>
         /// Starts listening mode transcription that waits for trigger phrase
         /// </summary>
@@ -177,6 +191,18 @@ namespace ForensicWhisperDeskZH
                 }
                 // Start transcription in listening mode
                 _transcriptionService.ToggleTranscription(HandleTranscribedTextListeningMode, _transcriptionSettings, _selectedDeviceNumber);
+
+                if (_transcriptionService.IsTranscribing)
+                {
+                    // Start the text buffer service
+                    _textBufferService.Start();
+                }
+                else
+                {
+                    // Stop the text buffer service
+                    _textBufferService.Stop();
+                }
+
                 return true;
             }
             catch (Exception ex)
@@ -184,6 +210,19 @@ namespace ForensicWhisperDeskZH
                 OnErrorOccurred($"Error starting listening mode: {ex.Message}", ex);
                 return false;
             }
+        }
+
+        public void StopListeningMode()
+        {
+            _isInListeningMode = false;
+            _triggerPhraseDetected = false;
+            OnDictationStateChanged.Invoke(this, _triggerPhraseDetected);
+            _listeningBuffer.Clear();
+            if (_transcriptionService?.IsTranscribing == true)
+            {
+                _transcriptionService.StopTranscription();
+            }
+            _textBufferService.Stop();
         }
 
         /// <summary>
@@ -258,23 +297,26 @@ namespace ForensicWhisperDeskZH
                     }
                 }
 
-                var currentBuffer = _listeningBuffer.ToString().ToLowerInvariant();
+                var currentBuffer = _listeningBuffer.ToString().ToLowerInvariant().Replace(",","").Replace(".","");
 
-                if (currentBuffer.Contains("diktat starten"))
+                if (currentBuffer.Contains("diktat start"))
                 {
                     _listeningBuffer.Clear();
-                    // Play Confirmation sound
                     LoggingService.PlayDictationModeChangeSound();
                     _triggerPhraseDetected = true;
+                    OnDictationStateChanged.Invoke(this, _triggerPhraseDetected);
+                    return;
                 }
                 if (currentBuffer.Contains("diktat beenden"))
                 {
                     _listeningBuffer.Clear();
                     LoggingService.PlayDictationModeChangeSound();
                     _triggerPhraseDetected = false;
+                    OnDictationStateChanged.Invoke(this, _triggerPhraseDetected);
+                    return;
                 }
 
-                if (TriggerPhraseDetected)
+                if (_triggerPhraseDetected)
                 {
                     _textBufferService.AddText(text);
                 }
@@ -348,7 +390,6 @@ namespace ForensicWhisperDeskZH
         /// </summary>
         protected virtual void OnErrorOccurred(string message, Exception ex = null)
         {
-            Globals.ThisAddIn.LogMessage($"ERROR: {message}", "AddInViewModel_OnErrorOccurred");
             LoggingService.LogError(message, ex, "AddInViewModel_OnErrorOccurred");
             ErrorOccurred?.Invoke(this, message);
         }

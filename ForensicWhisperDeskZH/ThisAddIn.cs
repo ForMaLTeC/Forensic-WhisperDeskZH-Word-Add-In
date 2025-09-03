@@ -57,17 +57,6 @@ namespace ForensicWhisperDeskZH
             }
         }
 
-        // Legacy logging methods for backward compatibility
-        public void LogException(Exception ex, string location = "ThisAddIn")
-        {
-            LoggingService.LogError("Exception occurred", ex, location);
-        }
-
-        public void LogMessage(string message, string location = "ThisAddIn")
-        {
-            LoggingService.LogMessage(message, location);
-        }
-
         #region VSTO generated code
 
         /// <summary>

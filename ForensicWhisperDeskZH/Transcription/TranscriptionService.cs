@@ -79,11 +79,12 @@ namespace ForensicWhisperDeskZH.Transcription
                 // Initialize model and factory
                 _modelManager = new WhisperModelManager();
 
-                // if in debug mode, download all models
+
+/*                // if in debug mode, download all models
 #if DEBUG
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
                 _modelManager.DownloadAllModelsAsync().Wait();
-#endif
+#endif*/
             }
             catch (Exception ex)
             {

@@ -20,6 +20,7 @@ namespace ForensicWhisperDeskZH
         private readonly double _maxChunkSizeInSeconds = 30.0; // Maximum chunk size in seconds
         private AddInViewModel ViewModel => Globals.ThisAddIn.AddInViewModel;
         private static bool _isTranscribing = false;
+        private static bool _isListening = false;
         private bool _isInitialized = false;
 
         private void TestRibbon_Load(object sender, RibbonUIEventArgs e)
@@ -41,25 +42,24 @@ namespace ForensicWhisperDeskZH
             {
                 await Task.Delay(100); // Wait 100ms between checks
                 attempts++;
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Waiting for ViewModel... Attempt {attempts}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Waiting for ViewModel... Attempt {attempts}");
             }
 
             if (ViewModel == null)
             {
-                System.Diagnostics.Debug.WriteLine("FennecRibbon: ERROR - ViewModel not available after timeout!");
+                System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: ERROR - ViewModel not available after timeout!");
                 return;
             }
+
+            ViewModel.OnDictationStateChanged += (s, isTranscribing) =>
+            {
+                _isTranscribing = isTranscribing;
+                ToggleDictationButton();
+            };
 
             // Initialize on the main thread
             await Task.Run(() =>
             {
-                // Use Invoke to run on the main thread
-
-                // With this line:
-                // Replace this line:
-                // Globals.Ribbons.MainRibbon.RibbonUI?.Invalidate();
-
-                // With this line:
                 Globals.Ribbons.MainRibbon.RibbonUI?.Invalidate();
 
                 InitializeRibbonControls();
@@ -72,7 +72,7 @@ namespace ForensicWhisperDeskZH
 
             try
             {
-                System.Diagnostics.Debug.WriteLine("FennecRibbon: Starting ribbon initialization...");
+                System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: Starting ribbon initialization...");
 
                 // Add diagnostic logging
                 AudioDiagnosticTool.ListAudioDevices();
@@ -81,7 +81,7 @@ namespace ForensicWhisperDeskZH
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Error initializing ribbon controls: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Error initializing ribbon controls: {ex.Message}");
             }
         }
 
@@ -101,7 +101,7 @@ namespace ForensicWhisperDeskZH
             SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalSeconds.ToString(CultureInfo.InvariantCulture);
 
             _isInitialized = true;
-            System.Diagnostics.Debug.WriteLine("FennecRibbon: Initialization completed successfully!");
+            System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: Initialization completed successfully!");
         }
 
         private void UpdateSettingsView()
@@ -128,7 +128,7 @@ namespace ForensicWhisperDeskZH
                     dropDownItem.Label = mic.Name;
                     dropDownItem.Tag = mic.DeviceNumber;
                     MicrophoneCheckBox.Items.Add(dropDownItem);
-                    LoggingService.LogMessage($"FennecRibbon: Found microphone: {mic.Name} (Device Number: {mic.DeviceNumber})");
+                    LoggingService.LogMessage($"ForensicWhisperDeskZH_Ribbon: Found microphone: {mic.Name} (Device Number: {mic.DeviceNumber})");
                 }
 
                 // Set the default selected item to the first microphone in the list
@@ -139,7 +139,7 @@ namespace ForensicWhisperDeskZH
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Error loading microphones: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Error loading microphones: {ex.Message}");
             }
         }
 
@@ -167,7 +167,7 @@ namespace ForensicWhisperDeskZH
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Error loading model types: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Error loading model types: {ex.Message}");
             }
         }
 
@@ -195,7 +195,7 @@ namespace ForensicWhisperDeskZH
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Error loading languages: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Error loading languages: {ex.Message}");
             }
         }
 
@@ -335,19 +335,21 @@ namespace ForensicWhisperDeskZH
             SilenceThreshold.Enabled = !_isTranscribing;
         }
 
-        private void ToggleDictationButton()
+        private bool ToggleDictationButton()
         {
             // Enable or disable controls based on transcription state
             StartTranscriptionButton.Label = _isTranscribing ? "Diktat Beenden" : "Diktat Starten";
-            StartTranscriptionButton.Enabled = true;
+            StartTranscriptionButton.OfficeImageId = _isTranscribing ? "SpeechMicrophone" : "AudioRecordingInsert";
+            ListenModeButton.Enabled = !_isTranscribing;
+            return _isTranscribing;
         }
 
         // Fix typo: change 'privtae' to 'private'
         private void ToggleListeningModeButton()
         {
             ListenModeButton.Label = _isTranscribing ? "Hörmodus Beenden" : "Hörmodus Starten";
-            ListenModeButton.Enabled = true;
-
+            ListenModeButton.OfficeImageId = _isTranscribing ? "MacroRecorderStop" : "MacroPlay";
+            StartTranscriptionButton.Enabled = !_isTranscribing;
         }
 
         private void ResetButton_Click(object sender, RibbonControlEventArgs e)
@@ -360,6 +362,7 @@ namespace ForensicWhisperDeskZH
 
         private void ListenModeButton_Click(object sender, RibbonControlEventArgs e)
         {
+            _isListening = !_isListening;
             ViewModel.StartListeningMode();
 
             ToggleInteractability();
