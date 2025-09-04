@@ -22,14 +22,5 @@ namespace ForensicWhisperDeskZH.Properties {
                 return defaultInstance;
             }
         }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("localhost:8000/")]
-        public string ServerURI {
-            get {
-                return ((string)(this["ServerURI"]));
-            }
-        }
     }
 }

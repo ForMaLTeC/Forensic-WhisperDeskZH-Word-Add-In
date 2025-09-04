@@ -53,7 +53,7 @@ namespace ForensicWhisperDeskZH
 
             ViewModel.OnDictationStateChanged += (s, isTranscribing) =>
             {
-                _isTranscribing = isTranscribing;
+                //_isTranscribing = isTranscribing;
                 ToggleDictationButton();
             };
 
@@ -73,9 +73,6 @@ namespace ForensicWhisperDeskZH
             try
             {
                 System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: Starting ribbon initialization...");
-
-                // Add diagnostic logging
-                AudioDiagnosticTool.ListAudioDevices();
 
                 InitalizeUserInterface();
             }
@@ -347,6 +344,7 @@ namespace ForensicWhisperDeskZH
         // Fix typo: change 'privtae' to 'private'
         private void ToggleListeningModeButton()
         {
+            
             ListenModeButton.Label = _isTranscribing ? "Hörmodus Beenden" : "Hörmodus Starten";
             ListenModeButton.OfficeImageId = _isTranscribing ? "MacroRecorderStop" : "MacroPlay";
             StartTranscriptionButton.Enabled = !_isTranscribing;
@@ -363,7 +361,7 @@ namespace ForensicWhisperDeskZH
         private void ListenModeButton_Click(object sender, RibbonControlEventArgs e)
         {
             _isListening = !_isListening;
-            ViewModel.StartListeningMode();
+            ViewModel.ToggleListeningMode(_isListening);
 
             ToggleInteractability();
             ToggleListeningModeButton();

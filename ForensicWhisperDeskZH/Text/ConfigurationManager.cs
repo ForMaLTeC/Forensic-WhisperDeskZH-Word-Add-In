@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml.Linq;
 using ForensicWhisperDeskZH.Transcription;
-using Newtonsoft.Json;
 
 namespace ForensicWhisperDeskZH.Common
 {
