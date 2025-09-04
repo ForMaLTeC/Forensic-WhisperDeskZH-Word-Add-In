@@ -231,7 +231,7 @@ jobs:
     runs-on: windows-latest
     needs: build
     # Only run release job for main branch pushes (not PRs)
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) || github.ref == 'refs/heads/develop'
     
     permissions:
       contents: write

@@ -20,8 +20,6 @@ namespace ForensicWhisperDeskZH
     {
         private readonly ITranscriptionServiceProvider _transcriptionProvider;
         private readonly IDocumentService _documentService;
-        private readonly TextBufferService _textBufferService;
-        private readonly SynchronizationContext _uiContext;
 
         private static Dictionary<string, string> _keywordsToReplace;
 
@@ -30,11 +28,11 @@ namespace ForensicWhisperDeskZH
         private bool _isDisposed = false;
         private bool _isInListeningMode = false;
         private bool _triggerPhraseDetected = false;
-        private string _lastTextAdded = string.Empty;
-
+        private readonly StringBuilder _textAccumulator = new StringBuilder();
+        private readonly object _accumulatorLock = new object();
+        private System.Timers.Timer _insertionTimer;
+        private const int INSERTION_INTERVAL_MS = 500; // 500ms batching
         public TranscriptionSettings _transcriptionSettings { get; }
-        //public bool IsTranscribing => _transcriptionService?.IsTranscribing ?? false;
-
 
         public event EventHandler<bool> OnDictationStateChanged;
         public event EventHandler<string> ErrorOccurred;
@@ -66,11 +64,8 @@ namespace ForensicWhisperDeskZH
             _transcriptionSettings = settings ?? TranscriptionSettings.Default;
             _keywordsToReplace = keywordReplacements ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            // Capture UI context for later marshaling
-            _uiContext = SynchronizationContext.Current ?? new SynchronizationContext();
-
-            // Create text buffer service
-            _textBufferService = new TextBufferService(_transcriptionSettings.InsertionInterval, InsertTextIntoDocument);
+            // Remove TextBufferService dependency
+            InitializeTextInsertion();
         }
 
         /// <summary>
@@ -136,7 +131,7 @@ namespace ForensicWhisperDeskZH
                 var task = _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings);
 
                 task.Wait(500); // 0.5 second timeout
-                
+
                 if (task.IsCompleted)
                 {
                     _transcriptionService = task.Result;
@@ -157,15 +152,15 @@ namespace ForensicWhisperDeskZH
 
         }
 
-        public void ToggleListeningMode(bool isListening)
+        public bool ToggleListeningMode(bool isListening)
         {
             if (isListening)
             {
-                StopListeningMode();
+                return StopListeningMode();
             }
             else
             {
-                StopListeningMode();
+                return StartListeningMode();
             }
         }
 
@@ -191,18 +186,6 @@ namespace ForensicWhisperDeskZH
                 }
                 // Start transcription in listening mode
                 _transcriptionService.ToggleTranscription(HandleTranscribedTextListeningMode, _transcriptionSettings, _selectedDeviceNumber);
-
-                if (_transcriptionService.IsTranscribing)
-                {
-                    // Start the text buffer service
-                    _textBufferService.Start();
-                }
-                else
-                {
-                    // Stop the text buffer service
-                    _textBufferService.Stop();
-                }
-
                 return true;
             }
             catch (Exception ex)
@@ -212,17 +195,28 @@ namespace ForensicWhisperDeskZH
             }
         }
 
-        public void StopListeningMode()
+        public bool StopListeningMode()
         {
-            _isInListeningMode = false;
-            _triggerPhraseDetected = false;
-            OnDictationStateChanged.Invoke(this, _triggerPhraseDetected);
-            _listeningBuffer.Clear();
-            if (_transcriptionService?.IsTranscribing == true)
+            try
             {
-                _transcriptionService.StopTranscription();
+                _isInListeningMode = false;
+                _triggerPhraseDetected = false;
+                OnDictationStateChanged.Invoke(this, _triggerPhraseDetected);
+                _listeningBuffer.Clear();
+                if (_transcriptionService?.IsTranscribing == true)
+                {
+                    _transcriptionService.StopTranscription();
+                    return true;
+                }
+                return false;
+                
             }
-            _textBufferService.Stop();
+            catch (Exception e)
+            {
+                LoggingService.LogError(e.Message, e, "AddInViewModel.StopTranscription");
+                return false;
+            }
+            //_textBufferService.Stop();
         }
 
         /// <summary>
@@ -241,17 +235,6 @@ namespace ForensicWhisperDeskZH
                 // Start or stop transcription
                 _transcriptionService.ToggleTranscription(HandleTranscribedText, _transcriptionSettings, _selectedDeviceNumber);
 
-                if (_transcriptionService.IsTranscribing)
-                {
-                    // Start the text buffer service
-                    _textBufferService.Start();
-                }
-                else
-                {
-                    // Stop the text buffer service
-                    _textBufferService.Stop();
-                }
-
                 return true;
             }
             catch (Exception ex)
@@ -261,16 +244,73 @@ namespace ForensicWhisperDeskZH
             }
         }
 
+        private void InitializeTextInsertion()
+        {
+            _insertionTimer = new System.Timers.Timer(INSERTION_INTERVAL_MS);
+            _insertionTimer.Elapsed += (sender, e) => FlushAccumulatedText();
+            _insertionTimer.AutoReset = true;
+            _insertionTimer.Start();
+        }
+
         /// <summary>
-        /// Handles new transcribed text from the transcription service
+        /// Optimized transcribed text handler with reduced overhead
         /// </summary>
         private void HandleTranscribedText(string text)
         {
             if (string.IsNullOrEmpty(text))
                 return;
 
-            // Add text to the buffer service
-            _textBufferService.AddText(text);
+            // Apply keyword replacements immediately
+            text = ApplyKeywordReplacements(text);
+
+            lock (_accumulatorLock)
+            {
+                _textAccumulator.Append(text).Append(" ");
+            }
+        }
+
+        private void FlushAccumulatedText()
+        {
+            string textToInsert;
+
+            lock (_accumulatorLock)
+            {
+                if (_textAccumulator.Length == 0)
+                    return;
+
+                textToInsert = _textAccumulator.ToString().Trim();
+                _textAccumulator.Clear();
+            }
+
+            // Direct UI thread execution without marshaling overhead
+            if (_documentService.IsDocumentAvailable)
+            {
+                try
+                {
+                    _documentService.InsertText(textToInsert + " ");
+                }
+                catch (Exception ex)
+                {
+                    OnErrorOccurred($"Error inserting text: {ex.Message}", ex);
+                }
+            }
+        }
+
+        private string ApplyKeywordReplacements(string text)
+        {
+            if (_keywordsToReplace.Count == 0)
+                return text;
+
+            var words = text.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < words.Length; i++)
+            {
+                if (_keywordsToReplace.TryGetValue(words[i], out var replacement))
+                {
+                    words[i] = replacement;
+                }
+            }
+
+            return string.Join(" ", words);
         }
 
         private void HandleTranscribedTextListeningMode(string text)
@@ -297,7 +337,7 @@ namespace ForensicWhisperDeskZH
                     }
                 }
 
-                var currentBuffer = _listeningBuffer.ToString().ToLowerInvariant().Replace(",","").Replace(".","");
+                var currentBuffer = _listeningBuffer.ToString().ToLowerInvariant().Replace(",", "").Replace(".", "");
 
                 if (currentBuffer.Contains("diktat start"))
                 {
@@ -318,61 +358,15 @@ namespace ForensicWhisperDeskZH
 
                 if (_triggerPhraseDetected)
                 {
-                    _textBufferService.AddText(text);
+                    HandleTranscribedText(text);
                 }
             }
-        }
-
-        /// <summary>
-        /// Inserts text into the document on the UI thread
-        /// </summary>
-        private void InsertTextIntoDocument(string text)
-        {
-            if (string.IsNullOrEmpty(text))
-                return;
-
-            // replace keywords in text
-            var words = text.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < words.Length; i++)
-            {
-                if (_keywordsToReplace.TryGetValue(words[i], out var replacement))
-                {
-                    words[i] = replacement;
-                }
-            }
-
-            // recombine words into text
-            text = string.Join(" ", words);
-            // add space at the end to avoid merging with next word
-            text += " ";
-
-            // call overlap algorithm to find overlapping words
-
-            // Marshal to UI thread
-            _uiContext.Post(_ =>
-            {
-                try
-                {
-                    if (!_documentService.InsertText(text))
-                    {
-                        OnErrorOccurred("Failed to insert text: No active document.");
-                    }
-                    else
-                    {
-                        _lastTextAdded = text;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    OnErrorOccurred($"Error inserting text: {ex.Message}", ex);
-                }
-            }, null);
         }
 
         /// <summary>
         /// Gets a list of available microphones
         /// </summary>
-        public System.Collections.Generic.List<MicrophoneDevice> GetMicrophoneList()
+        public List<MicrophoneDevice> GetMicrophoneList()
         {
             return _transcriptionProvider.GetAvailableMicrophones();
         }
@@ -404,18 +398,19 @@ namespace ForensicWhisperDeskZH
 
             try
             {
-                // Stop transcription first to ensure proper cleanup
+                _insertionTimer?.Stop();
+                _insertionTimer?.Dispose();
+
+                // Flush any remaining text
+                FlushAccumulatedText();
+
                 if (_transcriptionService?.IsTranscribing == true)
                 {
                     _transcriptionService.StopTranscription();
                 }
 
-                // Wait a moment for transcription to stop completely
                 System.Threading.Thread.Sleep(500);
-
-                _textBufferService?.Dispose();
                 _transcriptionService?.Dispose();
-
                 _isDisposed = true;
             }
             catch (Exception ex)

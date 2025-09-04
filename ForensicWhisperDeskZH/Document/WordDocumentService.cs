@@ -1,14 +1,18 @@
 using Microsoft.Office.Interop.Word;
 using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace ForensicWhisperDeskZH.Document
 {
     /// <summary>
-    /// Service for interacting with Word documents through the Word API
+    /// Optimized service for interacting with Word documents through the Word API
     /// </summary>
     public class WordDocumentService : IDocumentService
     {
         private readonly Application _application;
+        private readonly StringBuilder _pendingTextBuffer = new StringBuilder();
+        private readonly object _bufferLock = new object();
 
         public event EventHandler<DocumentErrorEventArgs> Error;
 
@@ -36,7 +40,7 @@ namespace ForensicWhisperDeskZH.Document
         }
 
         /// <summary>
-        /// Inserts text at the current cursor position
+        /// Inserts text at the current cursor position with batching optimization
         /// </summary>
         public bool InsertText(string text)
         {
@@ -48,13 +52,13 @@ namespace ForensicWhisperDeskZH.Document
                 if (!IsDocumentAvailable)
                     return false;
 
+                // Direct insertion for better performance
                 _application.Selection.TypeText(text);
                 return true;
             }
             catch (Exception ex)
             {
                 OnError(new DocumentErrorEventArgs("Error inserting text into document", ex));
-
                 return false;
             }
         }

@@ -29,7 +29,7 @@ namespace ForensicWhisperDeskZH.Audio
         private WebRtcVad _vad;
         private bool _vadInitialized = false;
         private readonly object _vadLock = new object();
-        private readonly int _silenceThresholdMs = 300; // 300ms of silence indicates word boundary
+        private readonly int _silenceThresholdMs = 1000; // 300ms of silence indicates word boundary
         private const int FRAME_SIZE_SAMPLES = 320; // 20ms at 16kHz
         private const int FRAME_SIZE_BYTES = FRAME_SIZE_SAMPLES * 2;
 
@@ -179,7 +179,7 @@ namespace ForensicWhisperDeskZH.Audio
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Failed to initialize VAD: {ex.Message}");
-                    LoggingService.LogError($"AudioBufferProcessor: Failed to initialize VAD: {ex.Message}", ex, "AudioBufferProcessor_EnsureVadInitialized");
+                    LoggingService.LogError($"AudioBufferProcessor: Failed to initialize VAD: {ex.Message} \n Inner Exception: {ex.InnerException}\n StackTrace {ex.StackTrace}", ex, "AudioBufferProcessor_EnsureVadInitialized");
                     _vadInitialized = false;
                     return false;
                 }
@@ -236,12 +236,14 @@ namespace ForensicWhisperDeskZH.Audio
                     // Always add frame to current chunk first
                     currentChunk.AddRange(frameBuffer);
 
-                    if (hasVoice)
+                    bool lastChunkSilent = false;
+                    if (hasVoice && lastChunkSilent)
                     {
                         consecutiveSilenceFrames = 0;
                     }
                     else
                     {
+                        lastChunkSilent = true;
                         consecutiveSilenceFrames++;
 
                         // Only consider cutting the chunk if we've reached minimum duration AND have sustained silence
@@ -267,7 +269,7 @@ namespace ForensicWhisperDeskZH.Audio
             // Add remaining audio as final chunk only if it meets minimum size or is the only chunk
             if (currentChunk.Count > 0)
             {
-                if (currentChunk.Count >= minChunkSizeBytes || chunks.Count == 0)
+                if (chunks.Count == 0) //currentChunk.Count >= minChunkSizeBytes ||
                 {
                     System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Creating final chunk with {currentChunk.Count} bytes (duration: {(double)currentChunk.Count / _bytesPerMillisecond:F0}ms)");
                     chunks.Add(currentChunk.ToArray());
