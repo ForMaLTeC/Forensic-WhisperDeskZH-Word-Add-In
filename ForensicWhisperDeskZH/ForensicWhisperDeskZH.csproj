@@ -357,6 +357,7 @@
     <Compile Include="Audio\IAudioCapture.cs" />
     <Compile Include="Audio\MemoryStreamPool.cs" />
     <Compile Include="Audio\MicrophoneDevice.cs" />
+    <Compile Include="Audio\NativeDllManager.cs" />
     <Compile Include="Audio\NAudioCapture.cs" />
     <Compile Include="Document\IDocumentService.cs" />
     <Compile Include="Document\WordDocumentService.cs" />
@@ -443,6 +444,9 @@
     <Resource Include="runtimes\win-arm64\whisper.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
+    <EmbeddedResource Include="libs\WebRtcVad.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
     <Content Include="runtimes\win-x64\ggml-base-whisper.dll" />
     <Content Include="runtimes\win-x64\ggml-cpu-whisper.dll" />
     <Content Include="runtimes\win-x64\ggml-whisper.dll" />
@@ -563,6 +567,12 @@
     <None Include="runtimes\vulkan\linux-x64\libggml-vulkan-whisper.so" />
     <None Include="runtimes\vulkan\linux-x64\libggml-whisper.so" />
     <None Include="runtimes\vulkan\linux-x64\libwhisper.so" />
+    <EmbeddedResource Include="libs\WebRtcVad.exp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="libs\WebRtcVad.lib">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
     <None Include="ThisAddIn.Designer.xml">
       <DependentUpon>ThisAddIn.cs</DependentUpon>
     </None>
@@ -640,7 +650,7 @@
   </Target>
   <Target Name="CopyWebRtcVadDll" AfterTargets="Build">
     <ItemGroup>
-      <WebRtcVadDlls Include="$(MSBuildThisFileDirectory)..\packages\WebRtcVadSharp*\lib\netstandard2.0\WebRtcVadSharp.dll" />
+      <WebRtcVadDlls Include="$(MSBuildThisFileDirectory)..\packages\WebRtcVadSharp*\build\win-x64\native\WebRtcVad.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(WebRtcVadDlls)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" Condition="Exists('@(WebRtcVadDlls)')" />
     <Message Text="Copied WebRTC VAD DLL to output directory" Condition="Exists('@(WebRtcVadDlls)')" />
