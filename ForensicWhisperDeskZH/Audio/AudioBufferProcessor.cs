@@ -170,6 +170,9 @@ namespace ForensicWhisperDeskZH.Audio
 
                 try
                 {
+                    // Try to load the native library first
+                    NativeDllManager.InitializeNativeLibraries();
+                    
                     _vad = new WebRtcVad();
                     _vad.OperatingMode = OperatingMode.Aggressive;
                     _vadInitialized = true;
@@ -179,7 +182,11 @@ namespace ForensicWhisperDeskZH.Audio
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Failed to initialize VAD: {ex.Message}");
-                    LoggingService.LogError($"AudioBufferProcessor: Failed to initialize VAD: {ex.Message} \n Inner Exception: {ex.InnerException}\n StackTrace {ex.StackTrace}", ex, "AudioBufferProcessor_EnsureVadInitialized");
+                    LoggingService.LogError($"AudioBufferProcessor: Failed to initialize VAD: {ex.Message} \n" + 
+                                    $"DLL Load Path: {System.Reflection.Assembly.GetExecutingAssembly().Location}\n" + 
+                                    $"Inner Exception: {ex.InnerException}\n StackTrace {ex.StackTrace}", 
+                                    ex, "AudioBufferProcessor_EnsureVadInitialized");
+
                     _vadInitialized = false;
                     return false;
                 }
