@@ -186,6 +186,7 @@ namespace ForensicWhisperDeskZH.Audio
                                     $"DLL Load Path: {System.Reflection.Assembly.GetExecutingAssembly().Location}\n" + 
                                     $"Inner Exception: {ex.InnerException}\n StackTrace {ex.StackTrace}", 
                                     ex, "AudioBufferProcessor_EnsureVadInitialized");
+
                     _vadInitialized = false;
                     return false;
                 }
