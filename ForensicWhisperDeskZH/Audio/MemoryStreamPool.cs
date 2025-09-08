@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.IO;
 
@@ -43,6 +44,8 @@ namespace ForensicWhisperDeskZH.Audio
 
             try
             {
+                byte[] buffer = stream.GetBuffer();
+                Array.Clear(buffer, 0, buffer.Length);
                 stream.Position = 0;
                 stream.SetLength(0);
                 _pool.Add(stream);

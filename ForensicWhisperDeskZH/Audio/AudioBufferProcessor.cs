@@ -171,7 +171,7 @@ namespace ForensicWhisperDeskZH.Audio
                 try
                 {
                     // Try to load the native library first
-                    NativeDllManager.InitializeNativeLibraries();
+                    //NativeDllManager.InitializeNativeLibraries();
                     
                     _vad = new WebRtcVad();
                     _vad.OperatingMode = OperatingMode.Aggressive;
