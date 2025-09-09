@@ -156,14 +156,26 @@ jobs:
     - name: Build Word Add-In
       run: |
         # First build to ensure all dependencies are resolved
-        msbuild ${{ env.SOLUTION_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
+        msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
         
-        # Build with explicit native library copying
-        msbuild ${{ env.SOLUTION_PATH }} /t:publish /p:Configuration=Release /p:Platform="x64" /p:RuntimeIdentifier=win-x64 /p:PublishDir=.\publish\ /p:CopyAllFiles=true /p:CopyLocalLockFileAssemblies=true /p:SelfContained=true        
+        # Build with explicit native library copying - target only the VSTO project
+        msbuild ${{ env.PROJECT_PATH }} /t:publish /p:Configuration=Release /p:Platform="x64" /p:RuntimeIdentifier=win-x64 /p:PublishDir=.\publish\ /p:CopyAllFiles=true /p:CopyLocalLockFileAssemblies=true /p:SelfContained=true
+        
         # List native libraries to verify
         Write-Host "=== Native Libraries in publish output ==="
-        Get-ChildItem -Path "ForensicWhisperDeskZH\publish\runtimes" -Recurse | ForEach-Object {
-          $size = if($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+        if (Test-Path "ForensicWhisperDeskZH\publish\runtimes") {
+          Get-ChildItem -Path "ForensicWhisperDeskZH\publish\runtimes" -Recurse | ForEach-Object {
+            $size = if($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+            Write-Host "$($_.FullName) - $size"
+          }
+        } else {
+          Write-Host "No runtimes directory found!"
+        }
+        
+        # Check for native libraries in other locations
+        Write-Host "=== Looking for native DLLs ==="
+        Get-ChildItem -Path "ForensicWhisperDeskZH\publish" -Recurse -Include "*.dll" | Where-Object { $_.Name -like "whisper*" -or $_.Name -like "WebRtcVad*" } | ForEach-Object {
+          $size = "$([math]::Round($_.Length / 1KB, 1)) KB"
           Write-Host "$($_.FullName) - $size"
         }
 
