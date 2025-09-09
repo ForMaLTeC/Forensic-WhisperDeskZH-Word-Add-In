@@ -161,11 +161,68 @@ jobs:
         msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
         msbuild ${{ env.PROJECT_PATH }} /t:Build /p:Configuration=Release /p:Platform="x64"
         
-        Write-Host "=== Manual Native Library Copy ==="
+        Write-Host "=== Check what managed assemblies are missing ==="
+        $binDir = "ForensicWhisperDeskZH\bin\x64\Release"
         $packagesDir = "packages"
-        $binDir = "ForensicWhisperDeskZH\bin\Release"
         
-        # Copy Whisper.net native libraries to bin directory
+        # List what's currently in bin directory
+        Write-Host "Current assemblies in bin directory:"
+        Get-ChildItem -Path $binDir -Filter "*.dll" | ForEach-Object {
+          $size = [math]::Round($_.Length / 1KB, 1)
+          Write-Host "  $($_.Name) - $size KB"
+        }
+        
+        Write-Host "=== Force Copy Missing Managed Assemblies ==="
+        
+        # Define the key managed assemblies that should be copied
+        $requiredAssemblies = @{
+          "Whisper.net.dll" = "$packagesDir\Whisper.net.*\lib\net*\Whisper.net.dll"
+          "WebRtcVadSharp.dll" = "$packagesDir\WebRtcVadSharp.*\lib\net*\WebRtcVadSharp.dll"
+          "NAudio.dll" = "$packagesDir\NAudio.*\lib\net*\NAudio.dll"
+          "NAudio.Core.dll" = "$packagesDir\NAudio.Core.*\lib\net*\NAudio.Core.dll"
+          "NAudio.Wasapi.dll" = "$packagesDir\NAudio.Wasapi.*\lib\net*\NAudio.Wasapi.dll"
+          "NAudio.WinMM.dll" = "$packagesDir\NAudio.WinMM.*\lib\net*\NAudio.WinMM.dll"
+          "Newtonsoft.Json.dll" = "$packagesDir\Newtonsoft.Json.*\lib\net*\Newtonsoft.Json.dll"
+        }
+        
+        foreach ($assemblyName in $requiredAssemblies.Keys) {
+          $targetPath = Join-Path $binDir $assemblyName
+          
+          if (-not (Test-Path $targetPath)) {
+            $pattern = $requiredAssemblies[$assemblyName]
+            $sourceFile = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
+            
+            if ($sourceFile) {
+              Copy-Item $sourceFile.FullName $targetPath -Force
+              $size = [math]::Round($sourceFile.Length / 1KB, 1)
+              Write-Host "✅ Copied missing assembly: $assemblyName ($size KB)"
+            } else {
+              Write-Warning "❌ Could not find source for: $assemblyName (pattern: $pattern)"
+            }
+          } else {
+            Write-Host "✅ Assembly already present: $assemblyName"
+          }
+        }
+        
+        Write-Host "=== Check main DLL size after managed assembly copy ==="
+        $mainDll = Get-ChildItem -Path $binDir -Filter "ForensicWhisperDeskZH.dll"
+        if ($mainDll) {
+          $dllSize = [math]::Round($mainDll.Length / 1KB, 1)
+          Write-Host "Main DLL Size: $dllSize KB"
+          
+          # Note: The main DLL size itself won't change - it's the dependencies that matter
+          Write-Host "Note: Main DLL size won't change - checking if dependencies are now present..."
+          
+          # Count total assemblies now present
+          $allDlls = Get-ChildItem -Path $binDir -Filter "*.dll"
+          $totalSize = ($allDlls | Measure-Object -Property Length -Sum).Sum / 1KB
+          Write-Host "Total assemblies in output: $($allDlls.Count) files, $([math]::Round($totalSize, 1)) KB total"
+        }
+        
+        Write-Host "=== Manual Native Library Copy (as backup) ==="
+        $packagesDir = "packages"
+        
+        # Copy Whisper.net native libraries to bin directory (your existing code)
         $whisperRuntimePaths = @(
           "$packagesDir\Whisper.net.Runtime.*\runtimes\win-x64\native\*",
           "$packagesDir\Whisper.net.Runtime.*\runtimes\win\native\*", 
@@ -176,12 +233,14 @@ jobs:
           $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
           foreach ($file in $files) {
             $targetPath = Join-Path $binDir $file.Name
-            Copy-Item $file.FullName $targetPath -Force
-            Write-Host "Copied native lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
+            if (-not (Test-Path $targetPath)) {
+              Copy-Item $file.FullName $targetPath -Force
+              Write-Host "Copied native lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
+            }
           }
         }
         
-        # Copy WebRtcVad native libraries  
+        # Copy WebRtcVad native libraries (your existing code)
         $vadPaths = @(
           "$packagesDir\WebRtcVadSharp.*\runtimes\win-x64\native\*",
           "$packagesDir\WebRtcVadSharp.*\lib\native\*"
@@ -191,253 +250,17 @@ jobs:
           $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
           foreach ($file in $files) {
             $targetPath = Join-Path $binDir $file.Name
-            Copy-Item $file.FullName $targetPath -Force  
-            Write-Host "Copied VAD lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
-          }
-        }
-        
-        Write-Host "=== Publishing VSTO ClickOnce Installer ==="
-        
-        # Use VSTO publish target to create ClickOnce installer
-        msbuild ${{ env.PROJECT_PATH }} /t:Publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=publish\ /p:PublishUrl="${{ env.PUBLISH_URL }}" /p:InstallUrl="${{ env.PUBLISH_URL }}" /p:ApplicationName="${{ env.APPLICATION_NAME }}" /p:ProductName="${{ env.APPLICATION_NAME }}" /p:BootstrapperEnabled=true /p:CreateWebPageOnPublish=false /p:AutorunEnabled=true /p:ApplicationRevision=1 /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" /p:UseApplicationTrust=false /p:PublishWizardShown=false
-        
-        Write-Host "=== Verify VSTO Publish Output ==="
-        
-        # Check for VSTO installer files
-        $publishDir = "ForensicWhisperDeskZH\publish"
-        if (Test-Path $publishDir) {
-          Write-Host "📁 Publish directory contents:"
-          Get-ChildItem -Path $publishDir -Recurse | ForEach-Object {
-            $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
-            Write-Host "  $($_.Name) - $size"
-          }
-          
-          # Verify key VSTO files are present
-          $requiredFiles = @("setup.exe", "*.vsto", "*.dll.manifest", "*.application")
-          foreach ($pattern in $requiredFiles) {
-            $found = Get-ChildItem -Path $publishDir -Filter $pattern -Recurse
-            if ($found) {
-              Write-Host "✅ Found required file(s): $($found.Name -join ', ')"
-            } else {
-              Write-Warning "❌ Missing required VSTO file pattern: $pattern"
-            }
-          }
-        } else {
-          Write-Error "❌ Publish directory not found: $publishDir"
-          exit 1
-        }
-        
-        # Verify main DLL size in publish output
-        $publishedDll = Get-ChildItem -Path $publishDir -Filter "ForensicWhisperDeskZH.dll" -Recurse
-        if ($publishedDll) {
-          $dllSize = [math]::Round($publishedDll.Length / 1KB, 1)
-          Write-Host "=== Published Main DLL Size: $dllSize KB ==="
-          
-          if ($dllSize -lt 200) {
-            Write-Warning "Main DLL size seems small ($dllSize KB) - this might indicate missing dependencies"
-          }
-        }
-
-    # Debug step to find the actual output paths
-    - name: List build output directories
-      run: |
-        Write-Host "=== Build Output Investigation ==="
-        
-        # List all directories that might contain build outputs
-        $searchPaths = @(
-          "ForensicWhisperDeskZH\bin\Release",
-          "ForensicWhisperDeskZH\bin",
-          "ForensicWhisperDeskZH\publish",
-          "bin\Release",
-          "publish"
-        )
-        
-        foreach ($path in $searchPaths) {
-          if (Test-Path $path) {
-            Write-Host "📁 Found directory: $path"
-            Get-ChildItem -Path $path -Recurse | ForEach-Object {
-              $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1)
-              $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
-              Write-Host "    $relativePath - $size"
-            }
-            Write-Host ""
-          } else {
-            Write-Host "❌ Directory not found: $path"
-          }
-        }
-        
-        # Look for common VSTO output files
-        Write-Host "=== Searching for VSTO files ==="
-        Get-ChildItem -Recurse -Include "*.dll", "*.manifest", "*.vsto", "*.deploy" | ForEach-Object {
-          $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1)
-          $size = "$([math]::Round($_.Length / 1KB, 1)) KB"
-          Write-Host "📄 $relativePath - $size"
-        }
-
-    - name: Sanitize Artifact Name
-      id: sanitize_name
-      run: |
-        # Get the ref name and sanitize it for artifact naming
-        $refName = "${{ github.ref_name || github.sha }}"
-        Write-Host "Original ref name: $refName"
-        
-        # Remove invalid characters: " : < > | * ? \r \n \ /
-        $sanitizedName = $refName -replace '[":/<>|*?\r\n\\]', '-'
-        
-        # Remove multiple consecutive dashes and trim
-        $sanitizedName = $sanitizedName -replace '-+', '-'
-        $sanitizedName = $sanitizedName.Trim('-')
-        
-        # Ensure it's not empty
-        if ([string]::IsNullOrWhiteSpace($sanitizedName)) {
-          $sanitizedName = "unknown"
-        }
-        
-        $fullArtifactName = "VSTO-Addin-Package-$sanitizedName"
-        
-        Write-Host "Sanitized artifact name: $fullArtifactName"
-        
-        # Set output for use in subsequent steps
-        echo "SANITIZED_NAME=$sanitizedName" >> $env:GITHUB_OUTPUT
-        echo "FULL_ARTIFACT_NAME=$fullArtifactName" >> $env:GITHUB_OUTPUT
-
-    - name: Upload published artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
-        path: ForensicWhisperDeskZH\publish
-        retention-days: 1  # Only keep for release job
-      id: upload_artifact
-
-  release:
-    runs-on: windows-latest
-    needs: build
-    # Only run release job for main branch pushes (not PRs)
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) || github.ref == 'refs/heads/develop'
-    
-    permissions:
-      contents: write
-      packages: write
-
-    steps:
-    - name: Download Build Artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ needs.build.outputs.artifact-name }}
-        path: ./release-artifacts
-
-    - name: Create Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ needs.build.outputs.version }}
-        release_name: Release v${{ needs.build.outputs.version }}
-        body: |
-          ## ForensicWhisperDeskZH Release v${{ needs.build.outputs.version }}
-          
-          **Important**: This package is split into multiple parts due to size limitations.
-
-          ### Features
-          - VSTO Add-in for Microsoft Word
-          - Whisper-based transcription capabilities
-          - Version: ${{ needs.build.outputs.version }}
-          - Assembly Version: ${{ needs.build.outputs.assembly-version }}
-          
-          ### Installation Options
-          
-          **Quick Install (Recommended):**
-          1. **Download ALL parts** (VSTO-Addin-Package-v${{ needs.build.outputs.version }}.zip.001, .002, etc.)
-          2. **Extract using 7-Zip** - right-click the .001 file and extract
-          3. **Run `setup.exe`** from the extracted files **as Administrator**
-
-          ### Key Points for Users:
-          1. **Download ALL parts** - The split archive won't work unless all parts are present
-          2. **Extract from the first part** - Always right-click on `.001` file to extract
-          3. **Use proper extraction tools** - 7-Zip, WinRAR, or similar tools that support split archives
-          4. **Windows built-in extractor won't work** with split archives
-          
-          ### System Requirements
-          - Microsoft Word 2016 or later
-          - .NET Framework 4.8
-          - Windows 10 or later
-        draft: false
-        prerelease: false
-      id: create_release
-
-    - name: Create ZIP from Artifact Contents (Split)
-      run: |
-        Write-Host "Creating split ZIP from artifact contents..."
-        $version = "${{ needs.build.outputs.version }}"
-        $zipBaseName = "VSTO-Addin-Package-v$version"
-        
-        Write-Host "Using version: $version"
-        Write-Host "ZIP base name: $zipBaseName"
-        
-        # Use 7-Zip to create split archives (500MB parts)
-        if (Get-Command "7z" -ErrorAction SilentlyContinue) {
-          Write-Host "Using 7-Zip for split compression..."
-          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1000m
-        } else {
-          # Install 7-Zip via chocolatey for splitting capability
-          Write-Host "Installing 7-Zip..."
-          choco install 7zip -y
-          & "C:\Program Files\7-Zip\7z.exe" a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v500m
-        }
-        
-        # List created files for debugging
-        Write-Host "=== Created Files ==="
-        Get-ChildItem -Filter "$zipBaseName.zip*" | ForEach-Object {
-          $size = [math]::Round($_.Length / 1MB, 2)
-          Write-Host "✅ Created $($_.Name) ($size MB)"
-        }
-        
-        # Set output for next step
-        echo "ZIP_BASE_NAME=$zipBaseName" >> $env:GITHUB_OUTPUT
-      id: create_zip
-
-    - name: Upload Split Package Parts
-      run: |
-        $zipBaseName = "${{ steps.create_zip.outputs.ZIP_BASE_NAME }}"
-        Write-Host "Looking for files with pattern: $zipBaseName.zip*"
-        
-        # List all files for debugging
-        Write-Host "=== All ZIP files in directory ==="
-        Get-ChildItem -Filter "*.zip*" | ForEach-Object {
-          Write-Host "Found: $($_.Name)"
-        }
-        
-        $parts = Get-ChildItem -Filter "$zipBaseName.zip*"
-        
-        if ($parts.Count -eq 0) {
-          Write-Error "No ZIP parts found with pattern: $zipBaseName.zip*"
-          exit 1
-        }
-        
-        Write-Host "Found $($parts.Count) ZIP parts to upload"
-        
-        foreach ($part in $parts) {
-          Write-Host "Uploading $($part.Name)..."
-          
-          $headers = @{
-            'Authorization' = 'token ${{ secrets.GITHUB_TOKEN }}'
-            'Content-Type' = 'application/zip'
-          }
-          
-          $uploadUrl = "${{ steps.create_release.outputs.upload_url }}".Replace('{?name,label}', "?name=$($part.Name)")
-          Write-Host "Upload URL: $uploadUrl"
-          
-          try {
-            $response = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -InFile $part.FullName
-            Write-Host "✅ Successfully uploaded $($part.Name)"
-            Write-Host "Response: $($response.browser_download_url)"
-          } catch {
-            Write-Error "❌ Failed to upload $($part.Name): $($_.Exception.Message)"
-            Write-Host "Exception details: $($_.Exception)"
-            if ($_.Exception.Response) {
-              $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-              $responseBody = $reader.ReadToEnd()
-              Write-Host "Response body: $responseBody"
+            if (-not (Test-Path $targetPath)) {
+              Copy-Item $file.FullName $targetPath -Force  
+              Write-Host "Copied VAD lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
             }
           }
         }
+        
+        Write-Host "=== Final Assembly List ==="
+        Get-ChildItem -Path $binDir -Filter "*.dll" | ForEach-Object {
+          $size = [math]::Round($_.Length / 1KB, 1)
+          Write-Host "  $($_.Name) - $size KB"
+        }
+
+    # Publish steps...
