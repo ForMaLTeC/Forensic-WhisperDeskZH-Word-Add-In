@@ -161,68 +161,11 @@ jobs:
         msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
         msbuild ${{ env.PROJECT_PATH }} /t:Build /p:Configuration=Release /p:Platform="x64"
         
-        Write-Host "=== Check what managed assemblies are missing ==="
-        $binDir = "ForensicWhisperDeskZH\bin\x64\Release"
+        Write-Host "=== Manual Native Library Copy ==="
         $packagesDir = "packages"
+        $binDir = "ForensicWhisperDeskZH\bin\Release"
         
-        # List what's currently in bin directory
-        Write-Host "Current assemblies in bin directory:"
-        Get-ChildItem -Path $binDir -Filter "*.dll" | ForEach-Object {
-          $size = [math]::Round($_.Length / 1KB, 1)
-          Write-Host "  $($_.Name) - $size KB"
-        }
-        
-        Write-Host "=== Force Copy Missing Managed Assemblies ==="
-        
-        # Define the key managed assemblies that should be copied
-        $requiredAssemblies = @{
-          "Whisper.net.dll" = "$packagesDir\Whisper.net.*\lib\net*\Whisper.net.dll"
-          "WebRtcVadSharp.dll" = "$packagesDir\WebRtcVadSharp.*\lib\net*\WebRtcVadSharp.dll"
-          "NAudio.dll" = "$packagesDir\NAudio.*\lib\net*\NAudio.dll"
-          "NAudio.Core.dll" = "$packagesDir\NAudio.Core.*\lib\net*\NAudio.Core.dll"
-          "NAudio.Wasapi.dll" = "$packagesDir\NAudio.Wasapi.*\lib\net*\NAudio.Wasapi.dll"
-          "NAudio.WinMM.dll" = "$packagesDir\NAudio.WinMM.*\lib\net*\NAudio.WinMM.dll"
-          "Newtonsoft.Json.dll" = "$packagesDir\Newtonsoft.Json.*\lib\net*\Newtonsoft.Json.dll"
-        }
-        
-        foreach ($assemblyName in $requiredAssemblies.Keys) {
-          $targetPath = Join-Path $binDir $assemblyName
-          
-          if (-not (Test-Path $targetPath)) {
-            $pattern = $requiredAssemblies[$assemblyName]
-            $sourceFile = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
-            
-            if ($sourceFile) {
-              Copy-Item $sourceFile.FullName $targetPath -Force
-              $size = [math]::Round($sourceFile.Length / 1KB, 1)
-              Write-Host "✅ Copied missing assembly: $assemblyName ($size KB)"
-            } else {
-              Write-Warning "❌ Could not find source for: $assemblyName (pattern: $pattern)"
-            }
-          } else {
-            Write-Host "✅ Assembly already present: $assemblyName"
-          }
-        }
-        
-        Write-Host "=== Check main DLL size after managed assembly copy ==="
-        $mainDll = Get-ChildItem -Path $binDir -Filter "ForensicWhisperDeskZH.dll"
-        if ($mainDll) {
-          $dllSize = [math]::Round($mainDll.Length / 1KB, 1)
-          Write-Host "Main DLL Size: $dllSize KB"
-          
-          # Note: The main DLL size itself won't change - it's the dependencies that matter
-          Write-Host "Note: Main DLL size won't change - checking if dependencies are now present..."
-          
-          # Count total assemblies now present
-          $allDlls = Get-ChildItem -Path $binDir -Filter "*.dll"
-          $totalSize = ($allDlls | Measure-Object -Property Length -Sum).Sum / 1KB
-          Write-Host "Total assemblies in output: $($allDlls.Count) files, $([math]::Round($totalSize, 1)) KB total"
-        }
-        
-        Write-Host "=== Manual Native Library Copy (as backup) ==="
-        $packagesDir = "packages"
-        
-        # Copy Whisper.net native libraries to bin directory (your existing code)
+        # Copy Whisper.net native libraries to bin directory
         $whisperRuntimePaths = @(
           "$packagesDir\Whisper.net.Runtime.*\runtimes\win-x64\native\*",
           "$packagesDir\Whisper.net.Runtime.*\runtimes\win\native\*", 
@@ -233,14 +176,12 @@ jobs:
           $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
           foreach ($file in $files) {
             $targetPath = Join-Path $binDir $file.Name
-            if (-not (Test-Path $targetPath)) {
-              Copy-Item $file.FullName $targetPath -Force
-              Write-Host "Copied native lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
-            }
+            Copy-Item $file.FullName $targetPath -Force
+            Write-Host "Copied native lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
           }
         }
         
-        # Copy WebRtcVad native libraries (your existing code)
+        # Copy WebRtcVad native libraries  
         $vadPaths = @(
           "$packagesDir\WebRtcVadSharp.*\runtimes\win-x64\native\*",
           "$packagesDir\WebRtcVadSharp.*\lib\native\*"
@@ -250,21 +191,58 @@ jobs:
           $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
           foreach ($file in $files) {
             $targetPath = Join-Path $binDir $file.Name
-            if (-not (Test-Path $targetPath)) {
-              Copy-Item $file.FullName $targetPath -Force  
-              Write-Host "Copied VAD lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
-            }
+            Copy-Item $file.FullName $targetPath -Force  
+            Write-Host "Copied VAD lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
           }
         }
         
-        Write-Host "=== Final Assembly List ==="
-        Get-ChildItem -Path $binDir -Filter "*.dll" | ForEach-Object {
-          $size = [math]::Round($_.Length / 1KB, 1)
-          Write-Host "  $($_.Name) - $size KB"
+        Write-Host "=== Publishing VSTO ClickOnce Installer ==="
+        
+        # Use VSTO publish target to create ClickOnce installer
+        msbuild ${{ env.PROJECT_PATH }} /t:Publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=publish\ /p:PublishUrl="${{ env.PUBLISH_URL }}" /p:InstallUrl="${{ env.PUBLISH_URL }}" /p:ApplicationName="${{ env.APPLICATION_NAME }}" /p:ProductName="${{ env.APPLICATION_NAME }}" /p:BootstrapperEnabled=true /p:CreateWebPageOnPublish=false /p:AutorunEnabled=true /p:ApplicationRevision=1 /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" /p:UseApplicationTrust=false /p:PublishWizardShown=false
+        
+        Write-Host "=== Verify VSTO Publish Output ==="
+        
+        # Check for VSTO installer files
+        $publishDir = "ForensicWhisperDeskZH\publish"
+        if (Test-Path $publishDir) {
+          Write-Host "📁 Publish directory contents:"
+          Get-ChildItem -Path $publishDir -Recurse | ForEach-Object {
+            $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+            Write-Host "  $($_.Name) - $size"
+          }
+          
+          # Verify key VSTO files are present
+          $requiredFiles = @("setup.exe", "*.vsto", "*.dll.manifest", "*.application")
+          foreach ($pattern in $requiredFiles) {
+            $found = Get-ChildItem -Path $publishDir -Filter $pattern -Recurse
+            if ($found) {
+              Write-Host "✅ Found required file(s): $($found.Name -join ', ')"
+            } else {
+              Write-Warning "❌ Missing required VSTO file pattern: $pattern"
+            }
+          }
+        } else {
+          Write-Error "❌ Publish directory not found: $publishDir"
+          exit 1
+        }
+        
+        # Verify main DLL size in publish output
+        $publishedDll = Get-ChildItem -Path $publishDir -Filter "ForensicWhisperDeskZH.dll" -Recurse
+        if ($publishedDll) {
+          $dllSize = [math]::Round($publishedDll.Length / 1KB, 1)
+          Write-Host "=== Published Main DLL Size: $dllSize KB ==="
+          
+          if ($dllSize -lt 200) {
+            Write-Warning "Main DLL size seems small ($dllSize KB) - this might indicate missing dependencies"
+          }
         }
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> parent of 3a0fb91 (Update build-and-publish-vsto.yml)
     # Debug step to find the actual output paths
     - name: List build output directories
       run: |
