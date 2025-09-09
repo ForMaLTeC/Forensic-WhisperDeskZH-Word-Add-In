@@ -154,7 +154,19 @@ jobs:
       run: nuget restore ${{ env.SOLUTION_PATH }}
 
     - name: Build Word Add-In
-      run: msbuild ${{ env.SOLUTION_PATH }} /t:publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=.\publish\ /p:PublishUrl=.\publish\
+      run: |
+        # First build to ensure all dependencies are resolved
+        msbuild ${{ env.SOLUTION_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
+        
+        # Build with explicit native library copying
+        msbuild ${{ env.SOLUTION_PATH }} /t:publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=.\publish\ /p:PublishUrl=.\publish\ /p:CopyAllFiles=true /p:CopyLocalLockFileAssemblies=true
+        
+        # List native libraries to verify
+        Write-Host "=== Native Libraries in publish output ==="
+        Get-ChildItem -Path "ForensicWhisperDeskZH\publish\runtimes" -Recurse | ForEach-Object {
+          $size = if($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+          Write-Host "$($_.FullName) - $size"
+        }
 
     # Debug step to find the actual output paths
     - name: List build output directories
