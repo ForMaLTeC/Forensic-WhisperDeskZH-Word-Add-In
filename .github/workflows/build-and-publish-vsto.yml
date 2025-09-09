@@ -157,23 +157,15 @@ jobs:
       run: |
         Write-Host "=== Building .NET Framework 4.8 VSTO Project ==="
         
-        # For .NET Framework projects with packages.config, use different approach
-        # First restore and build normally
+        # First restore packages and build normally
         msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
         msbuild ${{ env.PROJECT_PATH }} /t:Build /p:Configuration=Release /p:Platform="x64"
         
-        # Create publish directory
-        $publishDir = "ForensicWhisperDeskZH\publish"
-        New-Item -ItemType Directory -Force -Path $publishDir
-        
-        # Copy primary build output
-        $binDir = "ForensicWhisperDeskZH\bin\Release"
-        Copy-Item "$binDir\*" -Destination $publishDir -Recurse -Force
-        
-        Write-Host "=== Manually copying native libraries from packages ==="
+        Write-Host "=== Manual Native Library Copy ==="
         $packagesDir = "packages"
+        $binDir = "ForensicWhisperDeskZH\bin\Release"
         
-        # Copy Whisper.net native libraries
+        # Copy Whisper.net native libraries to bin directory
         $whisperRuntimePaths = @(
           "$packagesDir\Whisper.net.Runtime.*\runtimes\win-x64\native\*",
           "$packagesDir\Whisper.net.Runtime.*\runtimes\win\native\*", 
@@ -183,9 +175,9 @@ jobs:
         foreach ($pattern in $whisperRuntimePaths) {
           $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
           foreach ($file in $files) {
-            $targetPath = Join-Path $publishDir $file.Name
+            $targetPath = Join-Path $binDir $file.Name
             Copy-Item $file.FullName $targetPath -Force
-            Write-Host "Copied native lib: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
+            Write-Host "Copied native lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
           }
         }
         
@@ -198,28 +190,52 @@ jobs:
         foreach ($pattern in $vadPaths) {
           $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
           foreach ($file in $files) {
-            $targetPath = Join-Path $publishDir $file.Name
+            $targetPath = Join-Path $binDir $file.Name
             Copy-Item $file.FullName $targetPath -Force  
-            Write-Host "Copied VAD lib: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
+            Write-Host "Copied VAD lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
           }
         }
         
-        # Verify final DLL size
-        $mainDll = Get-ChildItem -Path $publishDir -Filter "ForensicWhisperDeskZH.dll"
-        if ($mainDll) {
-          $dllSize = [math]::Round($mainDll.Length / 1KB, 1)
-          Write-Host "=== Main DLL Size: $dllSize KB ==="
+        Write-Host "=== Publishing VSTO ClickOnce Installer ==="
+        
+        # Use VSTO publish target to create ClickOnce installer
+        msbuild ${{ env.PROJECT_PATH }} /t:Publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=publish\ /p:PublishUrl="${{ env.PUBLISH_URL }}" /p:InstallUrl="${{ env.PUBLISH_URL }}" /p:ApplicationName="${{ env.APPLICATION_NAME }}" /p:ProductName="${{ env.APPLICATION_NAME }}" /p:BootstrapperEnabled=true /p:CreateWebPageOnPublish=false /p:AutorunEnabled=true /p:ApplicationRevision=1 /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" /p:UseApplicationTrust=false /p:PublishWizardShown=false
+        
+        Write-Host "=== Verify VSTO Publish Output ==="
+        
+        # Check for VSTO installer files
+        $publishDir = "ForensicWhisperDeskZH\publish"
+        if (Test-Path $publishDir) {
+          Write-Host "📁 Publish directory contents:"
+          Get-ChildItem -Path $publishDir -Recurse | ForEach-Object {
+            $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+            Write-Host "  $($_.Name) - $size"
+          }
           
-          if ($dllSize -lt 100) {
+          # Verify key VSTO files are present
+          $requiredFiles = @("setup.exe", "*.vsto", "*.dll.manifest", "*.application")
+          foreach ($pattern in $requiredFiles) {
+            $found = Get-ChildItem -Path $publishDir -Filter $pattern -Recurse
+            if ($found) {
+              Write-Host "✅ Found required file(s): $($found.Name -join ', ')"
+            } else {
+              Write-Warning "❌ Missing required VSTO file pattern: $pattern"
+            }
+          }
+        } else {
+          Write-Error "❌ Publish directory not found: $publishDir"
+          exit 1
+        }
+        
+        # Verify main DLL size in publish output
+        $publishedDll = Get-ChildItem -Path $publishDir -Filter "ForensicWhisperDeskZH.dll" -Recurse
+        if ($publishedDll) {
+          $dllSize = [math]::Round($publishedDll.Length / 1KB, 1)
+          Write-Host "=== Published Main DLL Size: $dllSize KB ==="
+          
+          if ($dllSize -lt 200) {
             Write-Warning "Main DLL size seems small ($dllSize KB) - this might indicate missing dependencies"
           }
-        }
-        
-        # List all files in publish directory
-        Write-Host "=== Final Publish Directory Contents ==="
-        Get-ChildItem -Path $publishDir -Recurse | ForEach-Object {
-          $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
-          Write-Host "  $($_.Name) - $size"
         }
 
     # Debug step to find the actual output paths
