@@ -297,11 +297,6 @@ jobs:
           }
         }
 
-<<<<<<< HEAD
-
-
-=======
->>>>>>> parent of 3a0fb91 (Update build-and-publish-vsto.yml)
     # Debug step to find the actual output paths
     - name: List build output directories
       run: |
