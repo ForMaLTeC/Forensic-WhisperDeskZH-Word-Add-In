@@ -444,9 +444,9 @@
     <Resource Include="runtimes\win-arm64\whisper.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>
-    <EmbeddedResource Include="libs\WebRtcVad.dll">
+    <Content Include="WebRtcVad.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
+    </Content>
     <Content Include="runtimes\win-x64\ggml-base-whisper.dll" />
     <Content Include="runtimes\win-x64\ggml-cpu-whisper.dll" />
     <Content Include="runtimes\win-x64\ggml-whisper.dll" />
@@ -567,12 +567,12 @@
     <None Include="runtimes\vulkan\linux-x64\libggml-vulkan-whisper.so" />
     <None Include="runtimes\vulkan\linux-x64\libggml-whisper.so" />
     <None Include="runtimes\vulkan\linux-x64\libwhisper.so" />
-    <EmbeddedResource Include="libs\WebRtcVad.exp">
+    <Content Include="WebRtcVad.exp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
-    <EmbeddedResource Include="libs\WebRtcVad.lib">
+    </Content>
+    <Content Include="WebRtcVad.lib">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </EmbeddedResource>
+    </Content>
     <None Include="ThisAddIn.Designer.xml">
       <DependentUpon>ThisAddIn.cs</DependentUpon>
     </None>
@@ -583,7 +583,9 @@
     <None Include="WordAddIn1_1_TemporaryKey.pfx" />
     <None Include="WordAddIn1_TemporaryKey.pfx" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="libs\" />
+  </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
