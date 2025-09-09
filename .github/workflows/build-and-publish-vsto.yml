@@ -154,7 +154,7 @@ jobs:
       run: nuget restore ${{ env.SOLUTION_PATH }}
 
     - name: Build Word Add-In
-      run: msbuild ${{ env.SOLUTION_PATH }} /t:publish /p:Configuration=Release /p:PublishDir=.\publish\ /p:PublishUrl=.\publish\
+      run: msbuild ${{ env.SOLUTION_PATH }} /t:publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=.\publish\ /p:PublishUrl=.\publish\
 
     # Debug step to find the actual output paths
     - name: List build output directories
