@@ -240,144 +240,13 @@ jobs:
           }
         }
 
-    - name: Debug build output directories
-      run: |
-        Write-Host "=== Build Output Investigation ==="
-        
-        # List all directories that might contain build outputs
-        $searchPaths = @(
-          "ForensicWhisperDeskZH\bin\Release",
-          "ForensicWhisperDeskZH\bin",
-          "bin\Release",
-          "ForensicWhisperDeskZH\bin\x64\Release"
-        )
-        
-        foreach ($path in $searchPaths) {
-          if (Test-Path $path) {
-            Write-Host "📁 Found directory: $path"
-            Get-ChildItem -Path $path -Recurse | ForEach-Object {
-              $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1)
-              $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
-              Write-Host "    $relativePath - $size"
-            }
-            Write-Host ""
-          } else {
-            Write-Host "❌ Directory not found: $path"
-          }
-        }
-
-    - name: Sanitize Artifact Name
-      id: sanitize_name
-      run: |
-        # Get the ref name and sanitize it for artifact naming
-        $refName = "${{ github.ref_name || github.sha }}"
-        Write-Host "Original ref name: $refName"
-        
-        # Remove invalid characters: " : < > | * ? \r \n \ /
-        $sanitizedName = $refName -replace '[":/<>|*?\r\n\\]', '-'
-        
-        # Remove multiple consecutive dashes and trim
-        $sanitizedName = $sanitizedName -replace '-+', '-'
-        $sanitizedName = $sanitizedName.Trim('-')
-        
-        # Ensure it's not empty
-        if ([string]::IsNullOrWhiteSpace($sanitizedName)) {
-          $sanitizedName = "unknown"
-        }
-        
-        $fullArtifactName = "VSTO-Build-Output-$sanitizedName"
-        
-        Write-Host "Sanitized artifact name: $fullArtifactName"
-        
-        # Set output for use in subsequent steps
-        echo "SANITIZED_NAME=$sanitizedName" >> $env:GITHUB_OUTPUT
-        echo "FULL_ARTIFACT_NAME=$fullArtifactName" >> $env:GITHUB_OUTPUT
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
-        path: |
-          ForensicWhisperDeskZH/bin/x64/Release/
-          ForensicWhisperDeskZH/Models/
-        retention-days: 1  # Only keep for publish job
-
-  publish:
-    runs-on: windows-latest
-    needs: build
-    # Only run for main branch pushes or tags (not PRs or develop)
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Setup .NET Framework
-      uses: microsoft/setup-msbuild@v2
-      
-    - name: Setup NuGet
-      uses: nuget/setup-nuget@v2
-      with:
-        nuget-version: 'latest'
-
-    - name: Download Build Artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ needs.build.outputs.artifact-name }}
-        path: ./build-output
-
-    - name: Restore build environment
-      run: |
-        Write-Host "=== Restoring Build Environment for Publishing ==="
-        
-        # Restore NuGet packages (needed for publish)
-        nuget restore ${{ env.SOLUTION_PATH }}
-        
-        # Copy build output back to expected location
-        $sourceDir = "./build-output/ForensicWhisperDeskZH/bin/x64/Release"
-        $targetDir = "ForensicWhisperDeskZH/bin/x64/Release"
-        
-        if (Test-Path $sourceDir) {
-          Write-Host "Copying build output from $sourceDir to $targetDir"
-          New-Item -ItemType Directory -Force -Path $targetDir
-          Copy-Item -Path "$sourceDir/*" -Destination $targetDir -Recurse -Force
-        }
-        
-        # Copy models back
-        $modelsSource = "./build-output/ForensicWhisperDeskZH/Models"
-        $modelsTarget = "ForensicWhisperDeskZH/Models"
-        
-        if (Test-Path $modelsSource) {
-          Write-Host "Copying models from $modelsSource to $modelsTarget"
-          New-Item -ItemType Directory -Force -Path $modelsTarget
-          Copy-Item -Path "$modelsSource/*" -Destination $modelsTarget -Recurse -Force
-        }
-
-    # Install Code Signing Certificate for publishing
-    - name: Install Code Signing Certificate
-      run: |
-        # Decode certificate from base64
-        $certBytes = [System.Convert]::FromBase64String("${{ secrets.SIGNING_CERTIFICATE }}")
-        $certPath = "$env:TEMP\ForensicWhisperDeskZH.pfx"
-        [System.IO.File]::WriteAllBytes($certPath, $certBytes)
-        
-        # Import certificate to Personal store
-        $securePassword = ConvertTo-SecureString "${{ secrets.CERTIFICATE_PASSWORD }}" -AsPlainText -Force
-        Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
-        
-        # Clean up certificate file
-        Remove-Item $certPath -Force
-        
-        Write-Host "Certificate installed successfully"
-
+    # NEW DEDICATED PUBLISH STEP
     - name: Publish VSTO ClickOnce Installer
       run: |
         Write-Host "=== Publishing VSTO ClickOnce Installer ==="
         
         # Use VSTO publish target to create ClickOnce installer
-        msbuild ${{ env.PROJECT_PATH }} /t:Publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=publish\ /p:PublishUrl="${{ env.PUBLISH_URL }}" /p:InstallUrl="${{ env.PUBLISH_URL }}" /p:ApplicationName="${{ env.APPLICATION_NAME }}" /p:ProductName="${{ env.APPLICATION_NAME }}" /p:BootstrapperEnabled=true /p:CreateWebPageOnPublish=false /p:AutorunEnabled=true /p:ApplicationRevision=1 /p:ApplicationVersion="${{ needs.build.outputs.assembly-version }}" /p:UseApplicationTrust=false /p:PublishWizardShown=false
+        msbuild ${{ env.PROJECT_PATH }} /t:Publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=publish\ /p:PublishUrl="${{ env.PUBLISH_URL }}" /p:InstallUrl="${{ env.PUBLISH_URL }}" /p:ApplicationName="${{ env.APPLICATION_NAME }}" /p:ProductName="${{ env.APPLICATION_NAME }}" /p:BootstrapperEnabled=true /p:CreateWebPageOnPublish=false /p:AutorunEnabled=true /p:ApplicationRevision=1 /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" /p:UseApplicationTrust=false /p:PublishWizardShown=false
         
         Write-Host "=== Verify VSTO Publish Output ==="
         
@@ -416,45 +285,83 @@ jobs:
           }
         }
 
-    - name: Sanitize Release Artifact Name
-      id: sanitize_release_name
+    - name: Debug build output directories
       run: |
+        Write-Host "=== Build Output Investigation ==="
+        
+        # List all directories that might contain build outputs
+        $searchPaths = @(
+          "ForensicWhisperDeskZH\bin\Release",
+          "ForensicWhisperDeskZH\bin",
+          "bin\Release",
+          "ForensicWhisperDeskZH\bin\x64\Release",
+          "ForensicWhisperDeskZH\publish"
+        )
+        
+        foreach ($path in $searchPaths) {
+          if (Test-Path $path) {
+            Write-Host "📁 Found directory: $path"
+            Get-ChildItem -Path $path -Recurse | ForEach-Object {
+              $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1)
+              $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+              Write-Host "    $relativePath - $size"
+            }
+            Write-Host ""
+          } else {
+            Write-Host "❌ Directory not found: $path"
+          }
+        }
+
+    - name: Sanitize Artifact Name
+      id: sanitize_name
+      run: |
+        # Get the ref name and sanitize it for artifact naming
         $refName = "${{ github.ref_name || github.sha }}"
+        Write-Host "Original ref name: $refName"
+        
+        # Remove invalid characters: " : < > | * ? \r \n \ /
         $sanitizedName = $refName -replace '[":/<>|*?\r\n\\]', '-'
+        
+        # Remove multiple consecutive dashes and trim
         $sanitizedName = $sanitizedName -replace '-+', '-'
         $sanitizedName = $sanitizedName.Trim('-')
         
+        # Ensure it's not empty
         if ([string]::IsNullOrWhiteSpace($sanitizedName)) {
           $sanitizedName = "unknown"
         }
         
         $fullArtifactName = "VSTO-Addin-Package-$sanitizedName"
-        Write-Host "Release artifact name: $fullArtifactName"
         
+        Write-Host "Sanitized artifact name: $fullArtifactName"
+        
+        # Set output for use in subsequent steps
+        echo "SANITIZED_NAME=$sanitizedName" >> $env:GITHUB_OUTPUT
         echo "FULL_ARTIFACT_NAME=$fullArtifactName" >> $env:GITHUB_OUTPUT
 
     - name: Upload published artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.sanitize_release_name.outputs.FULL_ARTIFACT_NAME }}
+        name: ${{ steps.sanitize_name.outputs.FULL_ARTIFACT_NAME }}
         path: ForensicWhisperDeskZH\publish
-        retention-days: 30  # Keep published artifacts longer
+        retention-days: 1  # Only keep for release job
+      id: upload_artifact
 
   release:
     runs-on: windows-latest
-    needs: [build, publish]
-    # Only run release job for main branch pushes or version tags
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: build
+    # Only run release job for main branch pushes (not PRs)
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) || github.ref == 'refs/heads/develop'
     
     permissions:
       contents: write
       packages: write
 
     steps:
-    - name: Download Published Artifacts
+    - name: Download Build Artifacts
       uses: actions/download-artifact@v4
       with:
-        name: VSTO-Addin-Package-${{ github.ref_name || github.sha }}
+        name: ${{ needs.build.outputs.artifact-name }}
         path: ./release-artifacts
 
     - name: Create Release
