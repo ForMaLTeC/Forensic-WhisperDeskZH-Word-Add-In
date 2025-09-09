@@ -155,28 +155,71 @@ jobs:
 
     - name: Build Word Add-In
       run: |
-        # First build to ensure all dependencies are resolved
-        msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64" /p:RuntimeIdentifier=win-x64  /p:CopyAllFiles=true /p:CopyLocalLockFileAssemblies=true /p:SelfContained=true
+        Write-Host "=== Building .NET Framework 4.8 VSTO Project ==="
         
-        # Build with explicit native library copying - target only the VSTO project
-        msbuild ${{ env.PROJECT_PATH }} /t:publish /p:Configuration=Release /p:Platform="x64" /p:RuntimeIdentifier=win-x64 /p:PublishDir=.\publish\ /p:CopyAllFiles=true /p:CopyLocalLockFileAssemblies=true /p:SelfContained=true /p:IncludeNativeLibrariesForSelfExtract=true /p:IncludeAllContentForSelfExtract=true
+        # For .NET Framework projects with packages.config, use different approach
+        # First restore and build normally
+        msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
+        msbuild ${{ env.PROJECT_PATH }} /t:Build /p:Configuration=Release /p:Platform="x64"
         
-        # List native libraries to verify
-        Write-Host "=== Native Libraries in publish output ==="
-        if (Test-Path "ForensicWhisperDeskZH\publish\runtimes") {
-          Get-ChildItem -Path "ForensicWhisperDeskZH\publish\runtimes" -Recurse | ForEach-Object {
-            $size = if($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
-            Write-Host "$($_.FullName) - $size"
+        # Create publish directory
+        $publishDir = "ForensicWhisperDeskZH\publish"
+        New-Item -ItemType Directory -Force -Path $publishDir
+        
+        # Copy primary build output
+        $binDir = "ForensicWhisperDeskZH\bin\Release"
+        Copy-Item "$binDir\*" -Destination $publishDir -Recurse -Force
+        
+        Write-Host "=== Manually copying native libraries from packages ==="
+        $packagesDir = "packages"
+        
+        # Copy Whisper.net native libraries
+        $whisperRuntimePaths = @(
+          "$packagesDir\Whisper.net.Runtime.*\runtimes\win-x64\native\*",
+          "$packagesDir\Whisper.net.Runtime.*\runtimes\win\native\*", 
+          "$packagesDir\Whisper.net.AllRuntimes.*\runtimes\win-x64\native\*"
+        )
+        
+        foreach ($pattern in $whisperRuntimePaths) {
+          $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
+          foreach ($file in $files) {
+            $targetPath = Join-Path $publishDir $file.Name
+            Copy-Item $file.FullName $targetPath -Force
+            Write-Host "Copied native lib: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
           }
-        } else {
-          Write-Host "No runtimes directory found!"
         }
         
-        # Check for native libraries in other locations
-        Write-Host "=== Looking for native DLLs ==="
-        Get-ChildItem -Path "ForensicWhisperDeskZH\publish" -Recurse -Include "*.dll" | Where-Object { $_.Name -like "whisper*" -or $_.Name -like "WebRtcVad*" } | ForEach-Object {
-          $size = "$([math]::Round($_.Length / 1KB, 1)) KB"
-          Write-Host "$($_.FullName) - $size"
+        # Copy WebRtcVad native libraries  
+        $vadPaths = @(
+          "$packagesDir\WebRtcVadSharp.*\runtimes\win-x64\native\*",
+          "$packagesDir\WebRtcVadSharp.*\lib\native\*"
+        )
+        
+        foreach ($pattern in $vadPaths) {
+          $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
+          foreach ($file in $files) {
+            $targetPath = Join-Path $publishDir $file.Name
+            Copy-Item $file.FullName $targetPath -Force  
+            Write-Host "Copied VAD lib: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
+          }
+        }
+        
+        # Verify final DLL size
+        $mainDll = Get-ChildItem -Path $publishDir -Filter "ForensicWhisperDeskZH.dll"
+        if ($mainDll) {
+          $dllSize = [math]::Round($mainDll.Length / 1KB, 1)
+          Write-Host "=== Main DLL Size: $dllSize KB ==="
+          
+          if ($dllSize -lt 100) {
+            Write-Warning "Main DLL size seems small ($dllSize KB) - this might indicate missing dependencies"
+          }
+        }
+        
+        # List all files in publish directory
+        Write-Host "=== Final Publish Directory Contents ==="
+        Get-ChildItem -Path $publishDir -Recurse | ForEach-Object {
+          $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+          Write-Host "  $($_.Name) - $size"
         }
 
     # Debug step to find the actual output paths
