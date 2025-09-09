@@ -159,8 +159,7 @@ jobs:
         msbuild ${{ env.SOLUTION_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
         
         # Build with explicit native library copying
-        msbuild ${{ env.SOLUTION_PATH }} /t:publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=.\publish\ /p:PublishUrl=.\publish\ /p:CopyAllFiles=true /p:CopyLocalLockFileAssemblies=true
-        
+        msbuild ${{ env.SOLUTION_PATH }} /t:publish /p:Configuration=Release /p:Platform="x64" /p:RuntimeIdentifier=win-x64 /p:PublishDir=.\publish\ /p:CopyAllFiles=true /p:CopyLocalLockFileAssemblies=true /p:SelfContained=true        
         # List native libraries to verify
         Write-Host "=== Native Libraries in publish output ==="
         Get-ChildItem -Path "ForensicWhisperDeskZH\publish\runtimes" -Recurse | ForEach-Object {
