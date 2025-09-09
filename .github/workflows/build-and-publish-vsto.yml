@@ -153,28 +153,23 @@ jobs:
     - name: Restore NuGet packages for solution
       run: nuget restore ${{ env.SOLUTION_PATH }}
 
-    - name: Build VSTO Add-In
+    # FIXED: Single integrated build and publish step to prevent file corruption
+    - name: Build and Publish VSTO Add-In (Integrated)
       run: |
-        Write-Host "=== Building .NET Framework 4.8 VSTO Project ==="
+        Write-Host "=== Integrated Build and Publish for VSTO Project ==="
         
-        # First restore packages and build normally
-        msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
-        msbuild ${{ env.PROJECT_PATH }} /t:Build /p:Configuration=Release /p:Platform="x64"
+        # Clean any previous builds to ensure fresh state
+        msbuild ${{ env.PROJECT_PATH }} /t:Clean /p:Configuration=Release /p:Platform="x64"
         
-        Write-Host "=== Check what managed assemblies are missing ==="
+        # Pre-stage runtime dependencies BEFORE build to ensure they're included in publish
+        Write-Host "=== Pre-staging Runtime Dependencies ==="
         $binDir = "ForensicWhisperDeskZH\bin\x64\Release"
         $packagesDir = "packages"
         
-        # List what's currently in bin directory
-        Write-Host "Current assemblies in bin directory:"
-        Get-ChildItem -Path $binDir -Filter "*.dll" | ForEach-Object {
-          $size = [math]::Round($_.Length / 1KB, 1)
-          Write-Host "  $($_.Name) - $size KB"
-        }
+        # Ensure bin directory exists
+        New-Item -ItemType Directory -Force -Path $binDir
         
-        Write-Host "=== Force Copy Missing Managed Assemblies ==="
-        
-        # Define the key managed assemblies that should be copied
+        # Define the key managed assemblies that MUST be available before publish
         $requiredAssemblies = @{
           "Whisper.net.dll" = "$packagesDir\Whisper.net.*\lib\net*\Whisper.net.dll"
           "WebRtcVadSharp.dll" = "$packagesDir\WebRtcVadSharp.*\lib\net*\WebRtcVadSharp.dll"
@@ -187,103 +182,158 @@ jobs:
         
         foreach ($assemblyName in $requiredAssemblies.Keys) {
           $targetPath = Join-Path $binDir $assemblyName
+          $pattern = $requiredAssemblies[$assemblyName]
+          $sourceFile = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
           
-          if (-not (Test-Path $targetPath)) {
-            $pattern = $requiredAssemblies[$assemblyName]
-            $sourceFile = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
-            
-            if ($sourceFile) {
-              Copy-Item $sourceFile.FullName $targetPath -Force
-              $size = [math]::Round($sourceFile.Length / 1KB, 1)
-              Write-Host "✅ Copied missing assembly: $assemblyName ($size KB)"
-            } else {
-              Write-Warning "❌ Could not find source for: $assemblyName (pattern: $pattern)"
-            }
-          } else {
-            Write-Host "✅ Assembly already present: $assemblyName"
+          if ($sourceFile) {
+            Copy-Item $sourceFile.FullName $targetPath -Force
+            $size = [math]::Round($sourceFile.Length / 1KB, 1)
+            Write-Host "✅ Pre-staged assembly: $assemblyName ($size KB)"
           }
         }
         
-        Write-Host "=== Manual Native Library Copy (as backup) ==="
-        $packagesDir = "packages"
+        # Pre-stage native libraries in bin directory for VSTO to pick up
+        Write-Host "=== Pre-staging Native Libraries ==="
         
-        # Copy Whisper.net native libraries to bin directory
+        # Create runtimes directory structure in bin
+        $runtimesDir = Join-Path $binDir "runtimes"
+        New-Item -ItemType Directory -Force -Path $runtimesDir
+        
+        # Copy Whisper.net native libraries
         $whisperRuntimePaths = @(
-          "$packagesDir\Whisper.net.Runtime.*\runtimes\win-x64\native\*",
-          "$packagesDir\Whisper.net.Runtime.*\runtimes\win\native\*", 
-          "$packagesDir\Whisper.net.AllRuntimes.*\runtimes\win-x64\native\*"
+          "$packagesDir\Whisper.net.Runtime.*\runtimes",
+          "$packagesDir\Whisper.net.AllRuntimes.*\runtimes"
         )
         
         foreach ($pattern in $whisperRuntimePaths) {
-          $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
-          foreach ($file in $files) {
-            $targetPath = Join-Path $binDir $file.Name
-            if (-not (Test-Path $targetPath)) {
-              Copy-Item $file.FullName $targetPath -Force
-              Write-Host "Copied native lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
-            }
+          if (Test-Path $pattern) {
+            Write-Host "Copying runtime from: $pattern"
+            Copy-Item -Path "$pattern\*" -Destination $runtimesDir -Recurse -Force
           }
         }
         
         # Copy WebRtcVad native libraries
         $vadPaths = @(
-          "$packagesDir\WebRtcVadSharp.*\runtimes\win-x64\native\*",
-          "$packagesDir\WebRtcVadSharp.*\lib\native\*"
+          "$packagesDir\WebRtcVadSharp.*\runtimes",
+          "$packagesDir\WebRtcVadSharp.*\lib\native"
         )
         
         foreach ($pattern in $vadPaths) {
+          if (Test-Path $pattern) {
+            Write-Host "Copying VAD runtime from: $pattern"
+            Copy-Item -Path "$pattern\*" -Destination $runtimesDir -Recurse -Force
+          }
+        }
+        
+        # Also copy native libraries directly to bin for immediate access
+        $whisperNativePaths = @(
+          "$packagesDir\Whisper.net.Runtime.*\runtimes\win-x64\native\*",
+          "$packagesDir\Whisper.net.AllRuntimes.*\runtimes\win-x64\native\*"
+        )
+        
+        foreach ($pattern in $whisperNativePaths) {
           $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
           foreach ($file in $files) {
             $targetPath = Join-Path $binDir $file.Name
-            Copy-Item $file.FullName $targetPath -Force  
-            Write-Host "Copied VAD lib to bin: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
+            Copy-Item $file.FullName $targetPath -Force
+            Write-Host "Pre-staged native: $($file.Name) ($([math]::Round($file.Length / 1KB, 1)) KB)"
           }
         }
+        
+        # Now perform the integrated build and publish in one step
+        Write-Host "=== Performing Integrated Build and Publish ==="
+        
+        msbuild ${{ env.PROJECT_PATH }} `
+          /t:Restore`;Build`;Publish `
+          /p:Configuration=Release `
+          /p:Platform="x64" `
+          /p:PublishDir=publish\ `
+          /p:PublishUrl="${{ env.PUBLISH_URL }}" `
+          /p:InstallUrl="${{ env.PUBLISH_URL }}" `
+          /p:ApplicationName="${{ env.APPLICATION_NAME }}" `
+          /p:ProductName="${{ env.APPLICATION_NAME }}" `
+          /p:BootstrapperEnabled=true `
+          /p:CreateWebPageOnPublish=false `
+          /p:AutorunEnabled=true `
+          /p:ApplicationRevision=1 `
+          /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" `
+          /p:UseApplicationTrust=false `
+          /p:PublishWizardShown=false `
+          /p:IncludeNativeFilesInPublish=true `
+          /maxcpucount:1
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "Build and Publish failed with exit code $LASTEXITCODE"
+          exit 1
+        }
 
-    # NEW DEDICATED PUBLISH STEP
-    - name: Publish VSTO ClickOnce Installer
+    # ENHANCED: Better verification with file integrity checks
+    - name: Verify VSTO Publish Output with Integrity Checks
       run: |
-        Write-Host "=== Publishing VSTO ClickOnce Installer ==="
+        Write-Host "=== Enhanced VSTO Publish Verification ==="
         
-        # Use VSTO publish target to create ClickOnce installer
-        msbuild ${{ env.PROJECT_PATH }} /t:Publish /p:Configuration=Release /p:Platform="x64" /p:PublishDir=publish\ /p:PublishUrl="${{ env.PUBLISH_URL }}" /p:InstallUrl="${{ env.PUBLISH_URL }}" /p:ApplicationName="${{ env.APPLICATION_NAME }}" /p:ProductName="${{ env.APPLICATION_NAME }}" /p:BootstrapperEnabled=true /p:CreateWebPageOnPublish=false /p:AutorunEnabled=true /p:ApplicationRevision=1 /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" /p:UseApplicationTrust=false /p:PublishWizardShown=false
-        
-        Write-Host "=== Verify VSTO Publish Output ==="
-        
-        # Check for VSTO installer files
         $publishDir = "ForensicWhisperDeskZH\publish"
-        if (Test-Path $publishDir) {
-          Write-Host "📁 Publish directory contents:"
-          Get-ChildItem -Path $publishDir -Recurse | ForEach-Object {
-            $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
-            Write-Host "  $($_.Name) - $size"
-          }
-          
-          # Verify key VSTO files are present
-          $requiredFiles = @("setup.exe", "*.vsto", "*.dll.manifest", "*.application")
-          foreach ($pattern in $requiredFiles) {
-            $found = Get-ChildItem -Path $publishDir -Filter $pattern -Recurse
-            if ($found) {
-              Write-Host "✅ Found required file(s): $($found.Name -join ', ')"
-            } else {
-              Write-Warning "❌ Missing required VSTO file pattern: $pattern"
-            }
-          }
-        } else {
+        if (-not (Test-Path $publishDir)) {
           Write-Error "❌ Publish directory not found: $publishDir"
           exit 1
         }
         
-        # Verify main DLL size in publish output
-        $publishedDll = Get-ChildItem -Path $publishDir -Filter "ForensicWhisperDeskZH.dll" -Recurse
+        Write-Host "📁 Publish directory contents with integrity checks:"
+        Get-ChildItem -Path $publishDir -Recurse | ForEach-Object {
+          $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+          $status = ""
+          
+          # Flag suspicious small files that should be larger
+          if (-not $_.PSIsContainer) {
+            if ($_.Name -like "*.dll.deploy" -and $_.Length -lt 1000) {
+              $status = " ⚠️  SUSPICIOUS SIZE"
+            } elseif ($_.Name -like "ggml-*.bin.deploy" -and $_.Length -lt 1000) {
+              $status = " ⚠️  SUSPICIOUS SIZE"
+            } elseif ($_.Name -like "whisper*.dll.deploy" -and $_.Length -lt 1000) {
+              $status = " ⚠️  SUSPICIOUS SIZE"
+            }
+          }
+          
+          Write-Host "  $($_.Name) - $size$status"
+        }
+        
+        # Verify key VSTO files are present
+        $requiredFiles = @("setup.exe", "*.vsto", "*.dll.manifest", "*.application")
+        foreach ($pattern in $requiredFiles) {
+          $found = Get-ChildItem -Path $publishDir -Filter $pattern -Recurse
+          if ($found) {
+            Write-Host "✅ Found required file(s): $($found.Name -join ', ')"
+          } else {
+            Write-Warning "❌ Missing required VSTO file pattern: $pattern"
+          }
+        }
+        
+        # Verify main DLL size and flag if suspicious
+        $publishedDll = Get-ChildItem -Path $publishDir -Filter "ForensicWhisperDeskZH.dll.deploy" -Recurse
         if ($publishedDll) {
           $dllSize = [math]::Round($publishedDll.Length / 1KB, 1)
           Write-Host "=== Published Main DLL Size: $dllSize KB ==="
           
-          if ($dllSize -lt 200) {
-            Write-Warning "Main DLL size seems small ($dllSize KB) - this might indicate missing dependencies"
+          if ($dllSize -lt 500) {
+            Write-Error "❌ Main DLL size ($dllSize KB) is suspiciously small - likely missing dependencies or corrupted"
+            exit 1
+          } else {
+            Write-Host "✅ Main DLL size looks reasonable"
           }
         }
+        
+        # Check for corrupted native libraries
+        $suspiciousFiles = Get-ChildItem -Path $publishDir -Recurse -Filter "*.dll.deploy" | Where-Object { $_.Length -lt 1000 -and $_.Name -notlike "*ggml-whisper.dll*" }
+        if ($suspiciousFiles) {
+          Write-Warning "❌ Found potentially corrupted DLL files:"
+          $suspiciousFiles | ForEach-Object {
+            Write-Warning "  $($_.Name) - $([math]::Round($_.Length / 1KB, 1)) KB"
+          }
+          Write-Error "Build contains corrupted files - failing build"
+          exit 1
+        }
+        
+        Write-Host "✅ VSTO publish verification completed successfully"
 
     - name: Debug build output directories
       run: |
