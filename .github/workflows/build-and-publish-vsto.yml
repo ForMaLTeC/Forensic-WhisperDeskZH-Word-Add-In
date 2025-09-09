@@ -156,7 +156,7 @@ jobs:
     - name: Build Word Add-In
       run: |
         # First build to ensure all dependencies are resolved
-        msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64"
+        msbuild ${{ env.PROJECT_PATH }} /t:Restore /p:Configuration=Release /p:Platform="x64" /p:RuntimeIdentifier=win-x64  /p:CopyAllFiles=true /p:CopyLocalLockFileAssemblies=true /p:SelfContained=true
         
         # Build with explicit native library copying - target only the VSTO project
         msbuild ${{ env.PROJECT_PATH }} /t:publish /p:Configuration=Release /p:Platform="x64" /p:RuntimeIdentifier=win-x64 /p:PublishDir=.\publish\ /p:CopyAllFiles=true /p:CopyLocalLockFileAssemblies=true /p:SelfContained=true
