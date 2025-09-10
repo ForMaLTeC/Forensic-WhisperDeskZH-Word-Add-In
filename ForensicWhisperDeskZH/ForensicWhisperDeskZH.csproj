@@ -68,11 +68,6 @@
       <ProductName>.NET Runtime 9.0.8 %28x64%29</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
-    <BootstrapperPackage Include="Microsoft.NetCore.DesktopRuntime.9.0.x64">
-      <Visible>False</Visible>
-      <ProductName>.NET Desktop Runtime 9.0.8 %28x64%29</ProductName>
-      <Install>true</Install>
-    </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Visual.C++.14.0.x64">
       <Visible>False</Visible>
       <ProductName>Visual C++ "14" Runtime Libraries %28x64%29</ProductName>

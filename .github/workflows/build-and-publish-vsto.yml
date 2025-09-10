@@ -593,12 +593,12 @@ jobs:
         # Use 7-Zip to create split archives (500MB parts)
         if (Get-Command "7z" -ErrorAction SilentlyContinue) {
           Write-Host "Using 7-Zip for split compression..."
-          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1000m
+          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1800m
         } else {
           # Install 7-Zip via chocolatey for splitting capability
           Write-Host "Installing 7-Zip..."
           choco install 7zip -y
-          & "C:\Program Files\7-Zip\7z.exe" a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v500m
+          & "C:\Program Files\7-Zip\7z.exe" a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1800m
         }
         
         # List created files for debugging
