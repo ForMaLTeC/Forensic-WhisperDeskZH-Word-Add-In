@@ -74,7 +74,7 @@ namespace ForensicWhisperDeskZH.Audio
                 _audioCapture.StartCapture();
                 _isCapturing = true;
 
-                LoggingService.LogMessage($"AudioProcessor: Started capture on device {deviceNumber}", "AudioProcessor_StartCapture");
+                LoggingService.LogMessage($"AudioProcessor: Started capture on device {deviceNumber}", "AudioProcessor_StartCapture", true);
             }
             catch (Exception ex)
             {
@@ -102,7 +102,7 @@ namespace ForensicWhisperDeskZH.Audio
                 _audioCapture?.StopCapture();
                 _audioProcessor?.Stop();
 
-                LoggingService.LogMessage("AudioProcessor: Stopped capture", "AudioProcessor_StopCapture");
+                LoggingService.LogMessage("AudioProcessor: Stopped capture", "AudioProcessor_StopCapture", true);
             }
             catch (Exception ex)
             {

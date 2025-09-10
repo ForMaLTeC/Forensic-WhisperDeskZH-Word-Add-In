@@ -90,7 +90,7 @@ namespace ForensicWhisperDeskZH.Transcription
             {
                 LoggingService.PlayTranscriptionStateChangeSound();
 
-                LoggingService.LogMessage("TranscriptionService: Starting transcription", "TranscriptionService_StartTranscription");
+                LoggingService.LogMessage("TranscriptionService: Starting transcription", "TranscriptionService_StartTranscription", true);
                 LoggingService.LogMessage($"TranscriptionService: Using device number {deviceNumber}", "TranscriptionService_StartTranscription");
                 LoggingService.LogMessage($"TranscriptionService: Using language '{language?.Name ?? _settings.Language}'", "TranscriptionService_StartTranscription");
                 LoggingService.LogMessage($"TranscriptionService: Using model type '{_settings.ModelType}'", "TranscriptionService_StartTranscription");

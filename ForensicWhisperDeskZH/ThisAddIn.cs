@@ -32,7 +32,7 @@ namespace ForensicWhisperDeskZH
                     LoggingService.LogError(message, null, "AddInViewModel");
                 };
 
-                LoggingService.LogMessage("Add-in started successfully", "ThisAddIn_Startup");
+                LoggingService.LogMessage("Add-in started successfully", "ThisAddIn_Startup", true);
             }
             catch (Exception ex)
             {

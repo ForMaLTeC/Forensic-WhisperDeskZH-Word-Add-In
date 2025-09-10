@@ -150,11 +150,11 @@ namespace ForensicWhisperDeskZH
 
         }
 
-        public bool ToggleListeningMode(bool isListening)
+        public bool ToggleListeningMode()
         {
-            if (isListening)
+            if (_isInListeningMode)
             {
-                return StopListeningMode();
+                return !StopListeningMode();
             }
             else
             {
@@ -184,6 +184,7 @@ namespace ForensicWhisperDeskZH
                 }
                 // Start transcription in listening mode
                 _transcriptionService.ToggleTranscription(HandleTranscribedTextListeningMode, _transcriptionSettings, _selectedDeviceNumber);
+                LoggingService.LogMessage("Listening mode started.", "AddInViewModel_StartListeningMode",true);
                 return true;
             }
             catch (Exception ex)

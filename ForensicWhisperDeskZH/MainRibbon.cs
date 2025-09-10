@@ -18,12 +18,16 @@ namespace ForensicWhisperDeskZH
 
         private readonly double _minChunkSizeInSeconds = 1.0; // Minimum chunk size in seconds
         private readonly double _maxChunkSizeInSeconds = 30.0; // Maximum chunk size in seconds
+
+        private static readonly int _statusLabelLength = 100;
+        private static readonly int _maxConcurrentLogMessages = 4;
         private AddInViewModel ViewModel => Globals.ThisAddIn.AddInViewModel;
         private static bool _isTranscribing = false;
-        private static bool _isListening = false;
         private bool _isInitialized = false;
+        private bool _isListeningMode = false;
 
         private string _currentLogMessage = "Ready";
+        private List<string> _lastLogMessages = new List<string>();
         private readonly Queue<string> _logMessageQueue = new Queue<string>();
         private readonly object _logLock = new object();
         private System.Timers.Timer _logDisplayTimer;
@@ -80,7 +84,7 @@ namespace ForensicWhisperDeskZH
                 System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: Starting ribbon initialization...");
 
                 InitalizeUserInterface();
-                
+
                 // Initialize log display
                 InitializeLogDisplay();
             }
@@ -94,12 +98,12 @@ namespace ForensicWhisperDeskZH
         {
             // Subscribe to logging service events (you'll need to modify LoggingService for this)
             LoggingService.OnLogMessage += UpdateLogDisplay;
-            
+
             // Initialize timer for cycling through log messages
-            _logDisplayTimer = new System.Timers.Timer(3000); // Show each message for 3 seconds
+            _logDisplayTimer = new System.Timers.Timer(200); // Show each message for 3 seconds
             _logDisplayTimer.Elapsed += LogDisplayTimer_Elapsed;
             _logDisplayTimer.Start();
-            
+
             // Set initial status
             UpdateLogLabel("System Ready");
         }
@@ -123,7 +127,7 @@ namespace ForensicWhisperDeskZH
                 if (_logMessageQueue.Count > 0)
                 {
                     _currentLogMessage = _logMessageQueue.Dequeue();
-                    
+
                     UpdateLogLabel(_currentLogMessage);
                 }
             }
@@ -134,7 +138,20 @@ namespace ForensicWhisperDeskZH
             // Assuming you have a RibbonLabel called "StatusLabel" in your ribbon designer
             if (StatusLabel != null)
             {
-                StatusLabel.Label = TruncateMessage(message, 50); // Limit length for ribbon space
+                _currentLogMessage = TruncateMessage(message, _statusLabelLength);
+                _currentLogMessage += "\n";
+                _lastLogMessages.Add(_currentLogMessage);
+                if (_lastLogMessages.Count > _maxConcurrentLogMessages)
+                {
+                    // pop/remove oldest message
+                    _lastLogMessages.Remove(_lastLogMessages.First<string>());
+                }
+                string completeStatusLog = "";
+                foreach (string logMessage in _lastLogMessages)
+                {
+                    completeStatusLog += logMessage;
+                }
+                StatusLabel.Label = completeStatusLog; // Limit length for ribbon space
             }
         }
 
@@ -398,14 +415,15 @@ namespace ForensicWhisperDeskZH
             // Enable or disable controls based on transcription state
             StartTranscriptionButton.Label = _isTranscribing ? "Diktat Beenden" : "Diktat Starten";
             StartTranscriptionButton.OfficeImageId = _isTranscribing ? "SpeechMicrophone" : "AudioRecordingInsert";
-            ListenModeButton.Enabled = !_isTranscribing;
+            if(!_isListeningMode)
+                ListenModeButton.Enabled = !_isTranscribing;
             return _isTranscribing;
         }
 
         // Fix typo: change 'privtae' to 'private'
         private void ToggleListeningModeButton()
         {
-            
+            StartTranscriptionButton.Label = _isTranscribing ? "Diktat Beenden" : "Diktat Starten"; ;
             ListenModeButton.Label = _isTranscribing ? "Hörmodus Beenden" : "Hörmodus Starten";
             ListenModeButton.OfficeImageId = _isTranscribing ? "MacroRecorderStop" : "MacroPlay";
             StartTranscriptionButton.Enabled = !_isTranscribing;
@@ -421,8 +439,7 @@ namespace ForensicWhisperDeskZH
 
         private void ListenModeButton_Click(object sender, RibbonControlEventArgs e)
         {
-            _isListening = !_isListening;
-            ViewModel.ToggleListeningMode(_isListening);
+            _isListeningMode = ViewModel.ToggleListeningMode();
 
             ToggleInteractability();
             ToggleListeningModeButton();

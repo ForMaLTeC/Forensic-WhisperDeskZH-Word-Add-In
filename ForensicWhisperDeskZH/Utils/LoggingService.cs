@@ -43,8 +43,6 @@ namespace ForensicWhisperDeskZH.Utils
         /// </summary>
         public static async Task LogMessageAsync(string message, string source = "Application")
         {
-            // Notify ribbon
-            OnLogMessage?.Invoke(message);
             await LogToFileAsync(LogPath, $"[INFO] [{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {message}");
         }
 
@@ -119,8 +117,13 @@ namespace ForensicWhisperDeskZH.Utils
         }
 
         // Synchronous versions for compatibility with existing code
-        public static void LogMessage(string message, string source = "Application")
+        public static void LogMessage(string message, string source = "Application", bool displayToUser = false)
         {
+            if (displayToUser)
+            {
+                // Notify ribbon
+                OnLogMessage?.Invoke(message);
+            }
             Task.Run(() => LogMessageAsync(message, source)).Wait();
         }
 

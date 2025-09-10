@@ -352,16 +352,12 @@
     <Compile Include="Audio\IAudioCapture.cs" />
     <Compile Include="Audio\MemoryStreamPool.cs" />
     <Compile Include="Audio\MicrophoneDevice.cs" />
-    <Compile Include="Audio\NativeDllManager.cs" />
     <Compile Include="Audio\NAudioCapture.cs" />
     <Compile Include="Document\IDocumentService.cs" />
     <Compile Include="Document\WordDocumentService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Text\ConfigurationManager.cs" />
-    <Compile Include="Text\LoggingService.cs" />
-    <Compile Include="Text\TextBufferService.cs" />
     <Compile Include="Audio\AudioProcessor.cs" />
     <Compile Include="Transcription\ITranscriptionService.cs" />
     <Compile Include="Transcription\ITranscriptionServiceProvider.cs" />
