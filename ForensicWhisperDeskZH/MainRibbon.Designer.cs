@@ -46,10 +46,13 @@
             this.SilenceThreshold = this.Factory.CreateRibbonEditBox();
             this.MinChunkSizeInSeconds = this.Factory.CreateRibbonEditBox();
             this.ResetButton = this.Factory.CreateRibbonButton();
+            this.group3 = this.Factory.CreateRibbonGroup();
+            this.StatusLabel = this.Factory.CreateRibbonLabel();
             this.tab1.SuspendLayout();
             this.group2.SuspendLayout();
             this.group1.SuspendLayout();
             this.AdvancedSettings.SuspendLayout();
+            this.group3.SuspendLayout();
             this.SuspendLayout();
             // 
             // tab1
@@ -58,6 +61,7 @@
             this.tab1.Groups.Add(this.group2);
             this.tab1.Groups.Add(this.group1);
             this.tab1.Groups.Add(this.AdvancedSettings);
+            this.tab1.Groups.Add(this.group3);
             this.tab1.Label = "TabAddIns";
             this.tab1.Name = "tab1";
             // 
@@ -145,6 +149,18 @@
             this.ResetButton.ShowImage = true;
             this.ResetButton.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.ResetButton_Click);
             // 
+            // group3
+            // 
+            this.group3.Items.Add(this.StatusLabel);
+            this.group3.Label = "group3";
+            this.group3.Name = "group3";
+            // 
+            // StatusLabel
+            // 
+            this.StatusLabel.Label = "loreumipsumandsofurthandsoon kei ahnig wies wieter gaht aber hoffe das het alle s" +
+    "platz";
+            this.StatusLabel.Name = "StatusLabel";
+            // 
             // MainRibbon
             // 
             this.Name = "MainRibbon";
@@ -159,6 +175,8 @@
             this.group1.PerformLayout();
             this.AdvancedSettings.ResumeLayout(false);
             this.AdvancedSettings.PerformLayout();
+            this.group3.ResumeLayout(false);
+            this.group3.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -177,6 +195,8 @@
         internal Microsoft.Office.Tools.Ribbon.RibbonEditBox SilenceThreshold;
         internal Microsoft.Office.Tools.Ribbon.RibbonButton ResetButton;
         internal Microsoft.Office.Tools.Ribbon.RibbonButton ListenModeButton;
+        internal Microsoft.Office.Tools.Ribbon.RibbonGroup group3;
+        internal Microsoft.Office.Tools.Ribbon.RibbonLabel StatusLabel;
     }
 
     partial class ThisRibbonCollection

@@ -1,4 +1,4 @@
-using ForensicWhisperDeskZH.Common;
+using ForensicWhisperDeskZH.Utils;
 using NAudio.CoreAudioApi;
 using NAudio.MediaFoundation;
 using NAudio.Wave;
@@ -332,30 +332,6 @@ namespace ForensicWhisperDeskZH.Audio
                 {
                     System.Diagnostics.Debug.WriteLine($"NAudioCapture: Error during disposal: {ex.Message}");
                 }
-            }
-        }
-
-        public static void TestMicrophoneAccess(int deviceNumber)
-        {
-            try
-            {
-                var deviceEnumerator = new MMDeviceEnumerator();
-                var devices = deviceEnumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
-
-                System.Diagnostics.Debug.WriteLine($"Testing microphone access for device {deviceNumber}");
-                System.Diagnostics.Debug.WriteLine($"Total capture devices: {devices.Count}");
-
-                if (deviceNumber < devices.Count)
-                {
-                    var selectedDevice = devices[deviceNumber];
-                    System.Diagnostics.Debug.WriteLine($"Device {deviceNumber}: {selectedDevice.FriendlyName}");
-                    System.Diagnostics.Debug.WriteLine($"Device State: {selectedDevice.State}");
-                    System.Diagnostics.Debug.WriteLine($"Device Format: {selectedDevice.AudioClient.MixFormat}");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error testing microphone: {ex.Message}");
             }
         }
     }

@@ -1,5 +1,5 @@
 using ForensicWhisperDeskZH.Transcription;
-using ForensicWhisperDeskZH.Common;
+using ForensicWhisperDeskZH.Utils;
 using NAudio.Wave;
 using System;
 using System.IO;
@@ -48,7 +48,7 @@ namespace ForensicWhisperDeskZH.Audio
         /// <param name="settings">Transcription settings containing audio configuration</param>
         public AudioProcessor(TranscriptionSettings settings)
         {
-            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _settings = settings ?? TranscriptionSettings.Default;
             _waveFormat = _settings.WaveFormat;
         }
         #endregion

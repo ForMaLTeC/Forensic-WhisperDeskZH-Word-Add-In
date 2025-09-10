@@ -5,7 +5,7 @@ using System.IO;
 using System.Xml.Linq;
 using ForensicWhisperDeskZH.Transcription;
 
-namespace ForensicWhisperDeskZH.Common
+namespace ForensicWhisperDeskZH.Utils
 {
     /// <summary>
     /// Manages application configuration settings

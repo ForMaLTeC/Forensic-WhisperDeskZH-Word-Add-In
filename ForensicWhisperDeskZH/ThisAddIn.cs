@@ -1,5 +1,6 @@
-﻿using ForensicWhisperDeskZH.Common;
+﻿using ForensicWhisperDeskZH.Utils;
 using ForensicWhisperDeskZH.Document;
+using ForensicWhisperDeskZH.Transcription;
 using System;
 
 namespace ForensicWhisperDeskZH
@@ -18,8 +19,9 @@ namespace ForensicWhisperDeskZH
                 var documentService = new WordDocumentService(Application);
 
                 // Create the view model with appropriate dependencies
+                // Wait for the async creation to finish before continuing be using the task result
                 AddInViewModel = AddInViewModel.CreateAsync(
-                    new Transcription.WhisperTranscriptionServiceProvider(),
+                    new WhisperTranscriptionServiceProvider(),
                     documentService,
                     ConfigurationManager.LoadTranscriptionSettings(),
                     ConfigurationManager.LoadKeywordReplacements()).Result;

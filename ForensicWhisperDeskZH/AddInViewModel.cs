@@ -1,13 +1,11 @@
 ﻿using ForensicWhisperDeskZH.Audio;
-using ForensicWhisperDeskZH.Common;
+using ForensicWhisperDeskZH.Utils;
 using ForensicWhisperDeskZH.Document;
-using ForensicWhisperDeskZH.Text;
 using ForensicWhisperDeskZH.Transcription;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Whisper.net.Ggml;
 

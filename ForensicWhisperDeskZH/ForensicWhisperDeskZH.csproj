@@ -375,6 +375,8 @@
     <Compile Include="Transcription\WhisperModelManager.cs" />
     <Compile Include="Transcription\WhisperTranscriber.cs" />
     <Compile Include="Transcription\WhisperTranscriptionServiceProvider.cs" />
+    <Compile Include="Utils\ConfigurationManager.cs" />
+    <Compile Include="Utils\LoggingService.cs" />
     <Content Include="runtimes\cuda\win-x64\ggml-base-whisper.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

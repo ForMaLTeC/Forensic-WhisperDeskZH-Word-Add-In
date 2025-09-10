@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ForensicWhisperDeskZH.Common
+namespace ForensicWhisperDeskZH.Utils
 {
     /// <summary>
     /// Provides centralized logging functionality
@@ -20,8 +20,9 @@ namespace ForensicWhisperDeskZH.Common
 
         private static readonly string LogPath = Path.Combine(LogDirectory, $"log_{DateTime.Now:yyyyMMdd}.txt");
         private static readonly string ErrorPath = Path.Combine(LogDirectory, $"errors_{DateTime.Now:yyyyMMdd}.txt");
-
         private static readonly SemaphoreSlim LogLock = new SemaphoreSlim(1, 1);
+
+        public static event Action<string> OnLogMessage;
 
 
 
@@ -42,6 +43,8 @@ namespace ForensicWhisperDeskZH.Common
         /// </summary>
         public static async Task LogMessageAsync(string message, string source = "Application")
         {
+            // Notify ribbon
+            OnLogMessage?.Invoke(message);
             await LogToFileAsync(LogPath, $"[INFO] [{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {message}");
         }
 

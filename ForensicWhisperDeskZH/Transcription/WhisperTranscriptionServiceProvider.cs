@@ -70,10 +70,8 @@ namespace ForensicWhisperDeskZH.Transcription
         /// </summary>
         public async Task<ITranscriptionService> CreateTranscriptionServiceAsync(TranscriptionSettings settings)
         {
-            // Create and return the service
-            // This may take time if the model needs to be downloaded
-            var service = new TranscriptionService(settings);
-            return service;
+            // Create and return the service on a background thread to satisfy async requirements
+            return await Task.Run(() => new TranscriptionService(settings));
         }
     }
 }

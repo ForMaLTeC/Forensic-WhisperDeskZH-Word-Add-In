@@ -1,5 +1,5 @@
 ﻿using ForensicWhisperDeskZH.Audio;
-using ForensicWhisperDeskZH.Common;
+using ForensicWhisperDeskZH.Utils;
 using Microsoft.Office.Tools.Ribbon;
 using System;
 using System.Collections.Generic;
@@ -22,6 +22,11 @@ namespace ForensicWhisperDeskZH
         private static bool _isTranscribing = false;
         private static bool _isListening = false;
         private bool _isInitialized = false;
+
+        private string _currentLogMessage = "Ready";
+        private readonly Queue<string> _logMessageQueue = new Queue<string>();
+        private readonly object _logLock = new object();
+        private System.Timers.Timer _logDisplayTimer;
 
         private void TestRibbon_Load(object sender, RibbonUIEventArgs e)
         {
@@ -75,11 +80,67 @@ namespace ForensicWhisperDeskZH
                 System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: Starting ribbon initialization...");
 
                 InitalizeUserInterface();
+                
+                // Initialize log display
+                InitializeLogDisplay();
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Error initializing ribbon controls: {ex.Message}");
             }
+        }
+
+        private void InitializeLogDisplay()
+        {
+            // Subscribe to logging service events (you'll need to modify LoggingService for this)
+            LoggingService.OnLogMessage += UpdateLogDisplay;
+            
+            // Initialize timer for cycling through log messages
+            _logDisplayTimer = new System.Timers.Timer(3000); // Show each message for 3 seconds
+            _logDisplayTimer.Elapsed += LogDisplayTimer_Elapsed;
+            _logDisplayTimer.Start();
+            
+            // Set initial status
+            UpdateLogLabel("System Ready");
+        }
+
+        private void UpdateLogDisplay(string message)
+        {
+            lock (_logLock)
+            {
+                _logMessageQueue.Enqueue($"{DateTime.Now:HH:mm:ss} - {message}");
+                if (_logMessageQueue.Count > 10) // Keep only last 10 messages
+                {
+                    _logMessageQueue.Dequeue();
+                }
+            }
+        }
+
+        private void LogDisplayTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            lock (_logLock)
+            {
+                if (_logMessageQueue.Count > 0)
+                {
+                    _currentLogMessage = _logMessageQueue.Dequeue();
+                    
+                    UpdateLogLabel(_currentLogMessage);
+                }
+            }
+        }
+
+        private void UpdateLogLabel(string message)
+        {
+            // Assuming you have a RibbonLabel called "StatusLabel" in your ribbon designer
+            if (StatusLabel != null)
+            {
+                StatusLabel.Label = TruncateMessage(message, 50); // Limit length for ribbon space
+            }
+        }
+
+        private string TruncateMessage(string message, int maxLength)
+        {
+            return message.Length <= maxLength ? message : message.Substring(0, maxLength - 3) + "...";
         }
 
         private void InitalizeUserInterface()

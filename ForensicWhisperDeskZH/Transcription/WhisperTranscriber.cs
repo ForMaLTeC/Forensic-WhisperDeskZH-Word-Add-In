@@ -1,4 +1,4 @@
-using ForensicWhisperDeskZH.Common;
+using ForensicWhisperDeskZH.Utils;
 using NAudio.Wave;
 using System;
 using System.Collections.Generic;

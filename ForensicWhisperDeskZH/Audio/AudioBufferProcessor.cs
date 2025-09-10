@@ -1,4 +1,3 @@
-using ForensicWhisperDeskZH.Common;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -7,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using WebRtcVadSharp;
+using ForensicWhisperDeskZH.Utils;
 
 namespace ForensicWhisperDeskZH.Audio
 {
@@ -15,6 +15,7 @@ namespace ForensicWhisperDeskZH.Audio
     /// </summary>
     public class AudioBufferProcessor : IDisposable
     {
+        #region Fields
         private readonly TimeSpan _chunkDuration;
         private readonly int _bytesPerMillisecond;
         private MemoryStream _activeBuffer;
@@ -32,11 +33,14 @@ namespace ForensicWhisperDeskZH.Audio
         private readonly int _silenceThresholdMs = 1000; // 300ms of silence indicates word boundary
         private const int FRAME_SIZE_SAMPLES = 320; // 20ms at 16kHz
         private const int FRAME_SIZE_BYTES = FRAME_SIZE_SAMPLES * 2;
+        #endregion
 
+        #region Events
         /// <summary>
         /// Occurs when a processed audio chunk is available
         /// </summary>
         public event EventHandler<ProcessedAudioEventArgs> ChunkReady;
+        #endregion
 
         /// <summary>
         /// Creates a new audio buffer processor
@@ -200,8 +204,7 @@ namespace ForensicWhisperDeskZH.Audio
             // Try to initialize VAD if not already done
             if (!EnsureVadInitialized())
             {
-                // Fall back to energy-based detection if VAD fails
-                return DetectWordBoundariesByEnergy(audioBuffer);
+                LoggingService.LogMessage("AudioBufferProcessor: VAD not available, falling back to energy-based detection", "AudioBufferProcessor_DetectWordBoundaries");
             }
 
             var chunks = new List<byte[]>();
@@ -238,8 +241,7 @@ namespace ForensicWhisperDeskZH.Audio
                     {
                         System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: VAD error: {ex.Message}");
                         LoggingService.LogError($"AudioBufferProcessor: VAD error: {ex.Message}", ex, "AudioBufferProcessor_DetectWordBoundaries");
-                        // Fall back to energy-based detection for this frame
-                        hasVoice = CalculateRMSEnergy(frameBuffer) > 500.0;
+                        hasVoice = false;
                     }
 
                     // Always add frame to current chunk first
@@ -305,73 +307,6 @@ namespace ForensicWhisperDeskZH.Audio
             }
 
             return chunks;
-        }
-
-        private List<byte[]> DetectWordBoundariesByEnergy(MemoryStream audioBuffer)
-        {
-            var chunks = new List<byte[]>();
-            var currentChunk = new List<byte>();
-
-            audioBuffer.Position = 0;
-            byte[] frameBuffer = new byte[FRAME_SIZE_BYTES];
-            int consecutiveLowEnergyFrames = 0;
-            const double energyThreshold = 500.0;
-            const int silenceFrameThreshold = 15; // ~300ms of silence
-
-            while (audioBuffer.Position < audioBuffer.Length - FRAME_SIZE_BYTES)
-            {
-                int bytesRead = audioBuffer.Read(frameBuffer, 0, FRAME_SIZE_BYTES);
-
-                if (bytesRead == FRAME_SIZE_BYTES)
-                {
-                    double energy = CalculateRMSEnergy(frameBuffer);
-
-                    if (energy > energyThreshold)
-                    {
-                        currentChunk.AddRange(frameBuffer);
-                        consecutiveLowEnergyFrames = 0;
-                    }
-                    else
-                    {
-                        consecutiveLowEnergyFrames++;
-
-                        if (consecutiveLowEnergyFrames >= silenceFrameThreshold)
-                        {
-                            if (currentChunk.Count > 0)
-                            {
-                                chunks.Add(currentChunk.ToArray());
-                                currentChunk.Clear();
-                            }
-                            consecutiveLowEnergyFrames = 0;
-                        }
-                        else
-                        {
-                            currentChunk.AddRange(frameBuffer);
-                        }
-                    }
-                }
-            }
-
-            if (currentChunk.Count > 0)
-            {
-                chunks.Add(currentChunk.ToArray());
-            }
-
-            return chunks;
-        }
-
-        private double CalculateRMSEnergy(byte[] frameBuffer)
-        {
-            long sumSquares = 0;
-            int sampleCount = frameBuffer.Length / 2;
-
-            for (int i = 0; i < frameBuffer.Length - 1; i += 2)
-            {
-                short sample = BitConverter.ToInt16(frameBuffer, i);
-                sumSquares += (long)sample * sample;
-            }
-
-            return Math.Sqrt((double)sumSquares / sampleCount);
         }
 
         private async Task ConsumeChunksAsync()
