@@ -128,10 +128,9 @@ namespace ForensicWhisperDeskZH.Audio
 
                 // Swap active and processing buffers
                 bufferToProcess = _activeBuffer;
-                //_activeBuffer = _processingBuffer;
+                // reset processing buffer for next use
                 _processingBuffer.SetLength(0);
                 _processingBuffer.Position = 0;
-
                 _activeBuffer = _processingBuffer;
                 _processingBuffer = bufferToProcess;
 
