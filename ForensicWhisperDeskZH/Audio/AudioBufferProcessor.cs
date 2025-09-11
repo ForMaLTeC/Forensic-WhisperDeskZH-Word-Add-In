@@ -117,19 +117,21 @@ namespace ForensicWhisperDeskZH.Audio
 
         private void ProcessChunk(object state)
         {
-            MemoryStream chunk = _streamPool.GetStream();
-
             MemoryStream bufferToProcess;
             lock (_bufferLock)
             {
                 if (_activeBuffer.Length < FRAME_SIZE_BYTES * 10) // At least 200ms of audio
                 {
-                    _streamPool.ReturnStream(chunk);
+                    //_streamPool.ReturnStream(bufferToProcess);
                     return;
                 }
 
                 // Swap active and processing buffers
                 bufferToProcess = _activeBuffer;
+                //_activeBuffer = _processingBuffer;
+                _processingBuffer.SetLength(0);
+                _processingBuffer.Position = 0;
+
                 _activeBuffer = _processingBuffer;
                 _processingBuffer = bufferToProcess;
 
@@ -160,7 +162,7 @@ namespace ForensicWhisperDeskZH.Audio
             {
                 bufferToProcess.SetLength(0);
                 bufferToProcess.Position = 0;
-                _streamPool.ReturnStream(chunk);
+                _streamPool.ReturnStream(bufferToProcess);
             }
         }
 

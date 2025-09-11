@@ -153,8 +153,7 @@ namespace ForensicWhisperDeskZH.Audio
                     // and requires specific frame sizes
                     if (reader.WaveFormat.SampleRate != 16000 || reader.WaveFormat.Channels != 1 || reader.WaveFormat.BitsPerSample != 16)
                     {
-                        System.Diagnostics.Debug.WriteLine($"AudioProcessor: Audio format not compatible with WebRTC VAD, falling back to energy-based detection");
-                        return FallbackEnergyBasedDetection(tempFilePath);
+                        System.Diagnostics.Debug.WriteLine($"AudioProcessor: Audio format not compatible with WebRTC VAD");
                     }
 
                     using (var vad = new WebRtcVad())
@@ -217,7 +216,7 @@ namespace ForensicWhisperDeskZH.Audio
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"AudioProcessor: Error in WebRTC VAD voice detection: {ex.Message}");
-                return FallbackEnergyBasedDetection(tempFilePath);
+                return false;
             }
         }
 
@@ -291,48 +290,6 @@ namespace ForensicWhisperDeskZH.Audio
             catch (Exception ex)
             {
                 OnAudioError(new ErrorEventArgs(ex));
-            }
-        }
-
-        /// <summary>
-        /// Fallback energy-based voice detection when WebRTC VAD can't be used
-        /// </summary>
-        private bool FallbackEnergyBasedDetection(string tempFilePath)
-        {
-            try
-            {
-                using (var reader = new WaveFileReader(tempFilePath))
-                {
-                    var audioData = new byte[reader.Length];
-                    reader.Read(audioData, 0, audioData.Length);
-
-                    int totalSamples = audioData.Length / 2;
-                    int energySamples = 0;
-                    long sumSquares = 0;
-
-                    for (int i = 0; i < audioData.Length - 1; i += 2)
-                    {
-                        short sample = BitConverter.ToInt16(audioData, i);
-                        sumSquares += (long)sample * sample;
-
-                        if (Math.Abs(sample) > 500) // Energy threshold
-                        {
-                            energySamples++;
-                        }
-                    }
-
-                    double rms = Math.Sqrt((double)sumSquares / totalSamples);
-                    double energyPercentage = (double)energySamples / totalSamples * 100;
-
-                    System.Diagnostics.Debug.WriteLine($"AudioProcessor: Fallback detection - RMS: {rms:F2}, Energy %: {energyPercentage:F2}");
-
-                    return rms > 150 && energyPercentage > 2.0;
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"AudioProcessor: Fallback detection failed: {ex.Message}");
-                return true; // Assume voice if all detection methods fail
             }
         }
 

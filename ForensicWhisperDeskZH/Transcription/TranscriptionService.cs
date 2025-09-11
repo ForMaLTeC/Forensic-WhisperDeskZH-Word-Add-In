@@ -35,7 +35,7 @@ namespace ForensicWhisperDeskZH.Transcription
         #endregion
 
         #region Events
-                public event EventHandler<TranscriptionEventArgs> TranscriptionStarted;
+        public event EventHandler<TranscriptionEventArgs> TranscriptionStarted;
         public event EventHandler<TranscriptionEventArgs> TranscriptionStopped;
         public event EventHandler<TranscriptionResultEventArgs> TranscriptionResult;
         public event EventHandler<ErrorEventArgs> TranscriptionError;
@@ -304,6 +304,7 @@ namespace ForensicWhisperDeskZH.Transcription
                             // Send text to callback
                             textHandler?.Invoke(result.IncrementalText);
 
+                            /*
                             // Raise events for each segment
                             foreach (var segment in result.Segments)
                             {
@@ -312,6 +313,7 @@ namespace ForensicWhisperDeskZH.Transcription
                                     segment.Start,
                                     segment.End));
                             }
+                            */
                         }
 
                         // Reset error count on success
@@ -442,6 +444,7 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             TranscriptionStopped?.Invoke(this, e);
         }
+
 
         protected virtual void OnTranscriptionResult(TranscriptionResultEventArgs e)
         {

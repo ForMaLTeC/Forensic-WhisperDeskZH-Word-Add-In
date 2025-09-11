@@ -17,7 +17,7 @@ namespace ForensicWhisperDeskZH
         private readonly double _maxSilenceThreshold = 10.0; // Maximum silence threshold in seconds
 
         private readonly double _minChunkSizeInSeconds = 1.0; // Minimum chunk size in seconds
-        private readonly double _maxChunkSizeInSeconds = 30.0; // Maximum chunk size in seconds
+        private readonly double _maxChunkSizeInSeconds = 60.0; // Maximum chunk size in seconds
 
         private static readonly int _statusLabelLength = 100;
         private static readonly int _maxConcurrentLogMessages = 4;
