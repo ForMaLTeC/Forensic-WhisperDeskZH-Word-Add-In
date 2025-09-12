@@ -50,7 +50,7 @@ namespace ForensicWhisperDeskZH.Transcription
         /// Creates a new transcription service
         /// </summary>
         /// <param name="settings">Transcription settings</param>
-        public TranscriptionService(TranscriptionSettings settings = null)
+        public TranscriptionService(TranscriptionSettings settings = null, EventHandler<bool> dictationStateChanged = null)
         {
             try
             {
@@ -58,8 +58,13 @@ namespace ForensicWhisperDeskZH.Transcription
                 
                 // Create the specialized components
                 _audioProcessor = new AudioProcessor(_settings);
-                _whisperTranscriber = new WhisperTranscriber(_settings);
-                
+                _whisperTranscriber = new WhisperTranscriber(_settings, this);
+
+                if (dictationStateChanged != null)
+                {
+                    dictationStateChanged += (sender, state) => _whisperTranscriber.ResetFullText();
+                }
+
                 // Wire up events
                 _audioProcessor.AudioChunkReady += OnAudioChunkReady;
                 _audioProcessor.AudioError += OnAudioError;
@@ -296,24 +301,13 @@ namespace ForensicWhisperDeskZH.Transcription
                         }
 
                         // Process the results
-                        if (!string.IsNullOrWhiteSpace(result.FullText))
+                        if (!string.IsNullOrWhiteSpace(result.IncrementalText))
                         {
                             // Add to full transcript
-                            _fullTranscriptBuilder.Append(result.FullText + " ");
+                            //_fullTranscriptBuilder.Append(result.FullText + " ");
 
                             // Send text to callback
                             textHandler?.Invoke(result.IncrementalText);
-
-                            /*
-                            // Raise events for each segment
-                            foreach (var segment in result.Segments)
-                            {
-                                OnTranscriptionResult(new TranscriptionResultEventArgs(
-                                    segment.Text,
-                                    segment.Start,
-                                    segment.End));
-                            }
-                            */
                         }
 
                         // Reset error count on success
@@ -445,11 +439,6 @@ namespace ForensicWhisperDeskZH.Transcription
             TranscriptionStopped?.Invoke(this, e);
         }
 
-
-        protected virtual void OnTranscriptionResult(TranscriptionResultEventArgs e)
-        {
-            TranscriptionResult?.Invoke(this, e);
-        }
 
         protected virtual void OnTranscriptionError(ErrorEventArgs e)
         {

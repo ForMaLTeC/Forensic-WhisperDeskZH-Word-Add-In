@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using ForensicWhisperDeskZH.Audio;
@@ -17,7 +18,7 @@ namespace ForensicWhisperDeskZH.Transcription
         /// <summary>
         /// Creates a transcription service with the specified settings
         /// </summary>
-        Task<ITranscriptionService> CreateTranscriptionServiceAsync(TranscriptionSettings settings);
+        Task<ITranscriptionService> CreateTranscriptionServiceAsync(TranscriptionSettings settings, EventHandler<bool> dictationStateEvent);
     }
 
 }

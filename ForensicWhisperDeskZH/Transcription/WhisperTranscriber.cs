@@ -25,6 +25,9 @@ namespace ForensicWhisperDeskZH.Transcription
         private WhisperProcessor _transcriptor;
         private WhisperProcessorBuilder _transcriptorBuilder;
         private bool _isDisposed = false;
+
+        private string fullText = "";
+        private string incrementalText = "";
         #endregion
 
         #region Events
@@ -39,8 +42,14 @@ namespace ForensicWhisperDeskZH.Transcription
         /// Creates a new Whisper transcriber with the specified settings
         /// </summary>
         /// <param name="settings">Transcription settings</param>
-        public WhisperTranscriber(TranscriptionSettings settings)
+        public WhisperTranscriber(TranscriptionSettings settings, TranscriptionService transcriptionService = null)
         {
+
+            if (transcriptionService != null)
+            {
+                transcriptionService.TranscriptionStopped += (s, e) => ResetFullText();
+                transcriptionService.TranscriptionStarted += (s, e) => ResetFullText();
+            }
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _waveFormat = _settings.WaveFormat;
             _textProcessor = new TextProcessor(_settings);
@@ -75,6 +84,7 @@ namespace ForensicWhisperDeskZH.Transcription
             {
                 var resultSegments = new List<TranscriptionSegment>();
                 var segmentTexts = new List<string>();
+                _transcriptor = CreateWhisperProcessor(incrementalText);
 
                 using (var fileStream = File.OpenRead(audioFilePath))
                 {
@@ -104,7 +114,8 @@ namespace ForensicWhisperDeskZH.Transcription
                     }
                 }
 
-                string fullText = string.Join(" ", segmentTexts);
+                incrementalText = string.Join(" ", segmentTexts);
+                fullText = string.Join(incrementalText, segmentTexts);
                 System.Diagnostics.Debug.WriteLine($"WhisperTranscriber: Completed processing - Full text: '{fullText}'");
 
                 return new TranscriptionResult(fullText, fullText, resultSegments);
@@ -289,6 +300,11 @@ namespace ForensicWhisperDeskZH.Transcription
         private void OnTranscriptionError(ErrorEventArgs e)
         {
             TranscriptionError?.Invoke(this, e);
+        }
+
+        public void ResetFullText()
+        {
+            fullText = "";
         }
 
         private void ThrowIfDisposed()

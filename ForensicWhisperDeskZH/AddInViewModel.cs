@@ -87,7 +87,8 @@ namespace ForensicWhisperDeskZH
         {
             try
             {
-                _transcriptionService = await _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings);
+                _transcriptionService = await _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings, this.OnDictationStateChanged);
+               
 
                 if (_transcriptionService != null)
                 {
@@ -126,19 +127,19 @@ namespace ForensicWhisperDeskZH
                 System.Threading.Thread.Sleep(500);
 
                 // Create new service asynchronously but wait for completion
-                var task = _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings);
+                var task = _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings, this.OnDictationStateChanged).Result;
 
-                task.Wait(500); // 0.5 second timeout
+                //task.Wait(500); // 0.5 second timeout
 
-                if (task.IsCompleted)
+                if (task != null)
                 {
-                    _transcriptionService = task.Result;
+                    _transcriptionService = task;
                     ConfigurationManager.SaveTranscriptionSettings(_transcriptionSettings);
                     return true;
                 }
                 else
                 {
-                    OnErrorOccurred("Failed to recreate transcription service within timeout");
+                    OnErrorOccurred("Failed to recreate transcription service");
                     return false;
                 }
             }
@@ -341,9 +342,9 @@ namespace ForensicWhisperDeskZH
                 if (currentBuffer.Contains("diktat start"))
                 {
                     _listeningBuffer.Clear();
-                    LoggingService.PlayDictationModeChangeSound();
                     _triggerPhraseDetected = true;
                     OnDictationStateChanged.Invoke(this, _triggerPhraseDetected);
+                    LoggingService.PlayDictationModeChangeSound();
                     return;
                 }
                 if (currentBuffer.Contains("diktat beenden"))

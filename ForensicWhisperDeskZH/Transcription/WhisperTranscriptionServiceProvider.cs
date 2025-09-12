@@ -68,10 +68,10 @@ namespace ForensicWhisperDeskZH.Transcription
         /// <summary>
         /// Creates a new transcription service with the specified settings
         /// </summary>
-        public async Task<ITranscriptionService> CreateTranscriptionServiceAsync(TranscriptionSettings settings)
+        public async Task<ITranscriptionService> CreateTranscriptionServiceAsync(TranscriptionSettings settings, EventHandler<bool> dictiationStateChanged)
         {
             // Create and return the service on a background thread to satisfy async requirements
-            return await Task.Run(() => new TranscriptionService(settings));
+            return await Task.Run(() => new TranscriptionService(settings, dictiationStateChanged));
         }
     }
 }

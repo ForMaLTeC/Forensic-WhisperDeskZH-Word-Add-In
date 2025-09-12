@@ -481,9 +481,6 @@
     <Content Include="Models\ggml-turbo.bin">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="ggml-metal.metal">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <None Include="ForensicWhisperDeskZH.pfx" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
@@ -505,13 +502,6 @@
       <SubType>Code</SubType>
     </Compile>
     <None Include="readme.md" />
-    <None Include="runtimes\coreml\macos-arm64\libggml-base-whisper.dylib" />
-    <None Include="runtimes\coreml\macos-arm64\libggml-blas-whisper.dylib" />
-    <None Include="runtimes\coreml\macos-arm64\libggml-cpu-whisper.dylib" />
-    <None Include="runtimes\coreml\macos-arm64\libggml-metal-whisper.dylib" />
-    <None Include="runtimes\coreml\macos-arm64\libggml-whisper.dylib" />
-    <None Include="runtimes\coreml\macos-arm64\libwhisper.coreml.dylib" />
-    <None Include="runtimes\coreml\macos-arm64\libwhisper.dylib" />
     <None Include="runtimes\coreml\macos-x64\libggml-base-whisper.dylib" />
     <None Include="runtimes\coreml\macos-x64\libggml-blas-whisper.dylib" />
     <None Include="runtimes\coreml\macos-x64\libggml-cpu-whisper.dylib" />
@@ -535,12 +525,6 @@
     <None Include="runtimes\linux-x64\libggml-cpu-whisper.so" />
     <None Include="runtimes\linux-x64\libggml-whisper.so" />
     <None Include="runtimes\linux-x64\libwhisper.so" />
-    <None Include="runtimes\macos-arm64\libggml-base-whisper.dylib" />
-    <None Include="runtimes\macos-arm64\libggml-blas-whisper.dylib" />
-    <None Include="runtimes\macos-arm64\libggml-cpu-whisper.dylib" />
-    <None Include="runtimes\macos-arm64\libggml-metal-whisper.dylib" />
-    <None Include="runtimes\macos-arm64\libggml-whisper.dylib" />
-    <None Include="runtimes\macos-arm64\libwhisper.dylib" />
     <None Include="runtimes\macos-x64\libggml-base-whisper.dylib" />
     <None Include="runtimes\macos-x64\libggml-blas-whisper.dylib" />
     <None Include="runtimes\macos-x64\libggml-cpu-whisper.dylib" />
