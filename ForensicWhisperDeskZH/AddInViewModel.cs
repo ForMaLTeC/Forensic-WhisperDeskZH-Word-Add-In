@@ -345,14 +345,16 @@ namespace ForensicWhisperDeskZH
                     _triggerPhraseDetected = true;
                     OnDictationStateChanged.Invoke(this, _triggerPhraseDetected);
                     LoggingService.PlayDictationModeChangeSound();
+                    LoggingService.LogMessage("Dictation mode started.", "AddInViewModel_HandleTranscribedTextListeningMode", true);
                     return;
                 }
                 if (currentBuffer.Contains("diktat beenden"))
                 {
                     _listeningBuffer.Clear();
-                    LoggingService.PlayDictationModeChangeSound();
                     _triggerPhraseDetected = false;
                     OnDictationStateChanged.Invoke(this, _triggerPhraseDetected);
+                    LoggingService.PlayDictationModeChangeSound();
+                    LoggingService.LogMessage("Dictation mode ended.", "AddInViewModel_HandleTranscribedTextListeningMode", true);
                     return;
                 }
 

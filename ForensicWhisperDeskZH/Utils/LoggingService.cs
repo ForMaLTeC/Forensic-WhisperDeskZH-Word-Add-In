@@ -160,15 +160,25 @@ namespace ForensicWhisperDeskZH.Utils
         /// <summary>
         /// Plays a system warning sound to indicate transcription start
         /// </summary>
-        public static void PlayDictationModeChangeSound()
+        public static void PlayDictationModeChangeSound(bool isStarting = false)
         {
             try
             {
-                // Play system warning sound (async to avoid blocking)
-                Task.Run(() =>
+                if (isStarting)
                 {
-                    SystemSounds.Exclamation.Play();
-                });
+                    Task.Run(() =>
+                    {
+                        SystemSounds.Asterisk.Play();
+                    });
+
+                }
+                else
+                {
+                    Task.Run(() =>
+                    {
+                        SystemSounds.Exclamation.Play();
+                    });
+                }
             }
             catch (Exception ex)
             {
