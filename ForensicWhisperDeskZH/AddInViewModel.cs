@@ -94,7 +94,7 @@ namespace ForensicWhisperDeskZH
                 {
                     // Set up event handlers
                     _transcriptionService.TranscriptionError += (sender, e) =>
-                        OnErrorOccurred($"Transcription error: {e.GetException().Message}");
+                        OnErrorOccurred($"Transcription error:\nmessage: {e.GetException().Message}\nStack: {e.GetException().StackTrace}");
                 }
             }
             catch (Exception ex)

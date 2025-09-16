@@ -84,14 +84,14 @@ namespace ForensicWhisperDeskZH.Transcription
             {
                 var resultSegments = new List<TranscriptionSegment>();
                 var segmentTexts = new List<string>();
-                _transcriptor = CreateWhisperProcessor(incrementalText);
+                WhisperProcessor transcriptor = CreateWhisperProcessor(incrementalText);
 
                 using (var fileStream = File.OpenRead(audioFilePath))
                 {
                     System.Diagnostics.Debug.WriteLine($"WhisperTranscriber: Reading WAV file for processing - Size: {fileStream.Length} bytes");
                     System.Diagnostics.Debug.WriteLine($"WhisperTranscriber: Starting Whisper processing...");
 
-                    await foreach (var segment in _transcriptor.ProcessAsync(fileStream, cancellationToken))
+                    await foreach (var segment in transcriptor.ProcessAsync(fileStream, cancellationToken))
                     {
                         System.Diagnostics.Debug.WriteLine($"WhisperTranscriber: Received segment: '{segment.Text}' ({segment.Start} - {segment.End})");
 

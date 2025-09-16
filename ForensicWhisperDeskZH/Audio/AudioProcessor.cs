@@ -285,6 +285,7 @@ namespace ForensicWhisperDeskZH.Audio
         {
             try
             {
+                LoggingService.LogMessage($"AudioProcessor: Audio chunk ready", "AudioProcessor_OnAudioChunkReady", true);
                 AudioChunkReady?.Invoke(this, e);
             }
             catch (Exception ex)

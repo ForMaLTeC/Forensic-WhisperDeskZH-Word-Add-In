@@ -193,6 +193,7 @@ namespace ForensicWhisperDeskZH.Transcription
 
             try
             {
+                LoggingService.LogMessage($"TranscriptionService: Received audio chunk with {e.AudioData.Length} bytes", "TranscriptionService_OnAudioChunkReady");
                 var transcriptionTask = TranscribeChunkAsync(
                     e.AudioData,
                     _sessionId,
@@ -202,6 +203,7 @@ namespace ForensicWhisperDeskZH.Transcription
                 {
                     _transcriptionTasks.Enqueue(transcriptionTask);
                 }
+                LoggingService.LogMessage($"TranscriptionService: Enqueued transcription task. Queue size: {_transcriptionTasks.Count}", "TranscriptionService_OnAudioChunkReady");
             }
             catch (Exception ex)
             {
@@ -218,10 +220,12 @@ namespace ForensicWhisperDeskZH.Transcription
             if (audioBuffer == null || audioBuffer.Length == 0)
             {
                 System.Diagnostics.Debug.WriteLine("TranscriptionService: Empty or null audio buffer received");
+                LoggingService.LogMessage("TranscriptionService: Empty or null audio buffer received", "TranscriptionService_TranscribeChunkAsync", true);
                 return new TranscriptionResult(string.Empty, string.Empty, new List<TranscriptionSegment>());
             }
 
             System.Diagnostics.Debug.WriteLine($"TranscriptionService: Processing audio buffer with {audioBuffer.Length} bytes");
+            LoggingService.LogMessage($"TranscriptionService: Processing audio buffer with {audioBuffer.Length} bytes", "TranscriptionService_TranscribeChunkAsync", true);
 
             // Create a temporary file for the WAV data
             string tempFile = Path.Combine(Path.GetTempPath(), $"WhisperDesk_audio_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav");
@@ -291,6 +295,7 @@ namespace ForensicWhisperDeskZH.Transcription
                 {
                     try
                     {
+
                         // Wait for this task to complete
                         var result = await currentTask;
 
@@ -303,9 +308,7 @@ namespace ForensicWhisperDeskZH.Transcription
                         // Process the results
                         if (!string.IsNullOrWhiteSpace(result.IncrementalText))
                         {
-                            // Add to full transcript
-                            //_fullTranscriptBuilder.Append(result.FullText + " ");
-
+                            LoggingService.LogMessage($"Sending Incremental Text to Texthandler: {result.IncrementalText}");
                             // Send text to callback
                             textHandler?.Invoke(result.IncrementalText);
                         }
@@ -419,11 +422,13 @@ namespace ForensicWhisperDeskZH.Transcription
         private void HandleTranscriptionError(Exception ex)
         {
             _errorCount++;
+            LoggingService.LogMessage($"TranscriptionService: Error during transcription: {ex.Message}. Consecutive error count: {_errorCount}", "TranscriptionService_HandleTranscriptionError", true);
             OnTranscriptionError(new ErrorEventArgs(ex));
 
             // If we have too many consecutive errors, stop transcription
             if (_errorCount >= MaxConsecutiveErrors)
             {
+                LoggingService.LogMessage("TranscriptionService: Too many consecutive errors, stopping transcription", "TranscriptionService_HandleTranscriptionError", true);
                 StopTranscription();
             }
         }
