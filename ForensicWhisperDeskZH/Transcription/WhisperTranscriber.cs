@@ -136,11 +136,11 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             ThrowIfDisposed();
 
-            if (_transcriptor != null && modelType != default(GgmlType))
+            if (modelType != default(GgmlType))
             {
                 _settings.ModelType = modelType;
                 InitializeWhisperFactory();
-                _transcriptor = CreateWhisperProcessor();
+                //_transcriptor = CreateWhisperProcessor();
             }
         }
 
@@ -152,10 +152,10 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             ThrowIfDisposed();
 
-            if (_transcriptor != null && !string.IsNullOrEmpty(language))
+            if (string.IsNullOrEmpty(language))
             {
                 _settings.Language = language;
-                _transcriptor.ChangeLanguage(language);
+                //_transcriptor.ChangeLanguage(language);
             }
         }
 
@@ -227,7 +227,7 @@ namespace ForensicWhisperDeskZH.Transcription
             try
             {
                 string whisperModelPath = $"ggml-{_settings.ModelType.ToString().ToLower()}.bin";
-                LoggingService.LogMessage($"WhisperTranscriber: Using Whisper model path: {whisperModelPath}", "WhisperTranscriber_init");
+                LoggingService.LogMessage($"WhisperTranscriber: Using Whisper model path: {whisperModelPath}", "WhisperTranscriber_init", true);
 
                 string modelPath = _modelManager.EnsureModelExistsAsync(
                     whisperModelPath,
@@ -239,7 +239,7 @@ namespace ForensicWhisperDeskZH.Transcription
 
                 // Create builder and processor
                 _transcriptorBuilder = _transcriptorFactory.CreateBuilder();
-                _transcriptor = CreateWhisperProcessor();
+// _transcriptor = CreateWhisperProcessor();
             }
             catch (Exception ex)
             {

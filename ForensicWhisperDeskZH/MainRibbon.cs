@@ -289,7 +289,7 @@ namespace ForensicWhisperDeskZH
                 MessageBox.Show("Failed to toggle transcription. Check the logs for more details.",
                     "Transcription Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            ToggleInteractability();
+            ToggleSettingsInteractability();
             ToggleDictationButton();
         }
 
@@ -378,7 +378,8 @@ namespace ForensicWhisperDeskZH
             var selectedModel = ModelSelection.Items.FirstOrDefault(item => item.Label == ModelSelection.Text);
             if (selectedModel?.Tag is GgmlType modelType)
             {
-                ViewModel._transcriptionSettings.ModelType = modelType;
+                //ViewModel._transcriptionSettings.ModelType = modelType;
+                ViewModel.SetModelType(modelType);
             }
             else
             {
@@ -397,7 +398,7 @@ namespace ForensicWhisperDeskZH
             }
         }
 
-        private void ToggleInteractability()
+        private void ToggleSettingsInteractability()
         {
             // Toggle the transcription state
             _isTranscribing = !_isTranscribing;
@@ -421,7 +422,7 @@ namespace ForensicWhisperDeskZH
         }
 
         // Fix typo: change 'privtae' to 'private'
-        private void ToggleListeningModeButton()
+        private void ToggleViewF_ListeningModeButtonClick()
         {
             StartTranscriptionButton.Label = _isTranscribing ? "Diktat Beenden" : "Diktat Starten"; ;
             ListenModeButton.Label = _isTranscribing ? "Hörmodus Beenden" : "Hörmodus Starten";
@@ -441,8 +442,8 @@ namespace ForensicWhisperDeskZH
         {
             _isListeningMode = ViewModel.ToggleListeningMode();
 
-            ToggleInteractability();
-            ToggleListeningModeButton();
+            ToggleSettingsInteractability();
+            ToggleViewF_ListeningModeButtonClick();
         }
     }
 }

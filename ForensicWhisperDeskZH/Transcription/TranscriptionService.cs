@@ -170,6 +170,7 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             ThrowIfDisposed();
             _whisperTranscriber.ChangeModelType(modelType);
+            _settings.ModelType = modelType;
         }
 
         /// <summary>
@@ -288,6 +289,7 @@ namespace ForensicWhisperDeskZH.Transcription
                     if (_transcriptionTasks.Count > 0)
                     {
                         currentTask = _transcriptionTasks.Peek();
+                        LoggingService.LogMessage($"Processing transcription task. Queue size before dequeue: {_transcriptionTasks.Count}", "TranscriptionService_ProcessCompletedTranscriptions", true);
                     }
                 }
 

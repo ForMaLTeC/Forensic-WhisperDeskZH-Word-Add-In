@@ -101,11 +101,11 @@ namespace ForensicWhisperDeskZH.Transcription
         /// </summary>
         public GgmlType ModelType { get; set; } = GgmlType.LargeV3Turbo;
 
-        /// <summary>
-        /// Gets or sets whether to automatically capitalize the first letter of transcribed text.
-        /// Default is false.
-        /// </summary>
-        public bool CapitalizeFirstLetter { get; set; } = false;
+/// <summary>
+/// Gets or sets whether to automatically capitalize the first letter of transcribed text.
+/// Default is false.
+/// </summary>
+public bool CapitalizeFirstLetter { get; set; } = false;
 
         /// <summary>
         /// Gets or sets whether to automatically add punctuation to transcribed text.
