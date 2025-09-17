@@ -288,8 +288,8 @@ namespace ForensicWhisperDeskZH.Transcription
                 {
                     if (_transcriptionTasks.Count > 0)
                     {
-                        currentTask = _transcriptionTasks.Peek();
-                        LoggingService.LogMessage($"Processing transcription task. Queue size before dequeue: {_transcriptionTasks.Count}", "TranscriptionService_ProcessCompletedTranscriptions", true);
+                        currentTask = _transcriptionTasks.Dequeue(); // Dequeue immediately to process sequentially
+                        LoggingService.LogMessage($"Processing transcription task. Queue size after dequeue: {_transcriptionTasks.Count}", "TranscriptionService_ProcessCompletedTranscriptions", true);
                     }
                 }
 
@@ -297,15 +297,8 @@ namespace ForensicWhisperDeskZH.Transcription
                 {
                     try
                     {
-
-                        // Wait for this task to complete
+                        // Wait for this task to complete before processing the next one
                         var result = await currentTask;
-
-                        // Remove the task from the queue
-                        lock (_taskLock)
-                        {
-                            _transcriptionTasks.Dequeue();
-                        }
 
                         // Process the results
                         if (!string.IsNullOrWhiteSpace(result.IncrementalText))
@@ -320,12 +313,7 @@ namespace ForensicWhisperDeskZH.Transcription
                     }
                     catch (Exception ex)
                     {
-                        // Remove the failed task
-                        lock (_taskLock)
-                        {
-                            _transcriptionTasks.Dequeue();
-                        }
-
+                        // Task already dequeued, no need to remove it again
                         HandleTranscriptionError(ex);
                     }
                 }
@@ -352,10 +340,10 @@ namespace ForensicWhisperDeskZH.Transcription
                 // Cancel ongoing operations
                 _cancellationTokenSource?.Cancel();
 
-                // Stop audio processing
+                // Stop audio processing first to prevent new chunks
                 _audioProcessor.StopCapture();
 
-                // Wait for pending tasks with timeout
+                // Wait for pending tasks with shorter timeout to prevent hanging
                 var pendingTasks = new List<Task<TranscriptionResult>>();
                 lock (_taskLock)
                 {
@@ -369,18 +357,25 @@ namespace ForensicWhisperDeskZH.Transcription
                 {
                     try
                     {
+                        System.Diagnostics.Debug.WriteLine($"TranscriptionService: Waiting for {pendingTasks.Count} pending tasks to complete...");
                         var allTasksCompletion = Task.WhenAll(pendingTasks);
-                        var timeout = Task.Delay(3000);
+                        var timeout = Task.Delay(2000); // Reduced timeout from 3000ms to 2000ms
                         var completedTask = await Task.WhenAny(allTasksCompletion, timeout);
 
                         if (completedTask == timeout)
                         {
-                            System.Diagnostics.Debug.WriteLine("TranscriptionService: Timeout waiting for tasks to complete");
+                            System.Diagnostics.Debug.WriteLine("TranscriptionService: Timeout waiting for tasks to complete - forcing stop");
+                            LoggingService.LogMessage("TranscriptionService: Timeout waiting for transcription tasks to complete", "TranscriptionService_StopTranscriptionInternalAsync", true);
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine("TranscriptionService: All pending tasks completed successfully");
                         }
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error waiting for tasks: {ex.Message}");
+                        LoggingService.LogError($"TranscriptionService: Error waiting for transcription tasks: {ex.Message}", ex, "TranscriptionService_StopTranscriptionInternalAsync");
                     }
                 }
 
@@ -389,6 +384,7 @@ namespace ForensicWhisperDeskZH.Transcription
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"TranscriptionService: Error in stop transcription: {ex.Message}");
                 OnTranscriptionError(new ErrorEventArgs(ex));
             }
             finally
