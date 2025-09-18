@@ -76,19 +76,23 @@ namespace ForensicWhisperDeskZH.Transcription
         /// Transcribes an audio file and returns the result
         /// </summary>
         /// <param name="audioFilePath">Path to the audio file</param>
-        /// <param name="sessionId">Session ID for tracking</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Transcription result</returns>
         public async Task<TranscriptionResult> TranscribeAudioFileAsync(string audioFilePath, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
 
-            // Use the existing _processorLock to ensure only one transcription happens at a time
+            // Use a semaphore-like approach with the existing _processorLock to ensure only one transcription happens at a time
             // This prevents concurrent access to Whisper.net objects which are not thread-safe
+            TranscriptionResult result;
+            
             lock (_processorLock)
             {
-                return TranscribeAudioFileInternal(audioFilePath, cancellationToken);
+                ThrowIfDisposed(); // Check again inside the lock
+                result = TranscribeAudioFileInternal(audioFilePath, cancellationToken);
             }
+
+            return result;
         }
 
         /// <summary>
@@ -105,7 +109,6 @@ namespace ForensicWhisperDeskZH.Transcription
                 var segmentTexts = new List<string>();
                 
                 WhisperProcessor transcriptor = null;
-                ThrowIfDisposed(); // Check again inside the lock
                 transcriptor = CreateWhisperProcessor(incrementalText);
 
                 if (transcriptor == null)
@@ -120,8 +123,25 @@ namespace ForensicWhisperDeskZH.Transcription
                         System.Diagnostics.Debug.WriteLine($"WhisperTranscriber: Reading WAV file for processing - Size: {fileStream.Length} bytes");
                         System.Diagnostics.Debug.WriteLine($"WhisperTranscriber: Starting Whisper processing...");
 
-                        // Process synchronously within the lock to prevent concurrent Whisper access
-                        foreach (var segment in transcriptor.Process(fileStream))
+                        // Use synchronous enumeration to avoid async within lock
+                        var segments = new List<Whisper.net.SegmentData>();
+                        
+                        // We need to process this synchronously within the lock
+                        // Create a task and wait for it synchronously to maintain thread safety
+                        var transcriptionTask = Task.Run(async () =>
+                        {
+                            var tempSegments = new List<Whisper.net.SegmentData>();
+                            await foreach (var segment in transcriptor.ProcessAsync(fileStream, cancellationToken))
+                            {
+                                tempSegments.Add(segment);
+                            }
+                            return tempSegments;
+                        });
+
+                        // Wait synchronously for the task to complete within the lock
+                        segments = transcriptionTask.GetAwaiter().GetResult();
+
+                        foreach (var segment in segments)
                         {
                             // Check for cancellation and disposal frequently
                             cancellationToken.ThrowIfCancellationRequested();
@@ -139,12 +159,12 @@ namespace ForensicWhisperDeskZH.Transcription
                             string processedText = _textProcessor.ProcessTranscribedText(segment.Text);
                             segmentTexts.Add(processedText);
 
-                            // Create result segment
+                            // Create result segment with empty sessionId since it's not passed to this method
                             resultSegments.Add(new TranscriptionSegment(
                                 processedText,
                                 segment.Start,
                                 segment.End,
-                                sessionId));
+                                string.Empty));
                         }
                     }
                 }

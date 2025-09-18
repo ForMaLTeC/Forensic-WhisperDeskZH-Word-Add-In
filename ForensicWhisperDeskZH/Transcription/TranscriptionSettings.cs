@@ -116,8 +116,6 @@ namespace ForensicWhisperDeskZH.Transcription
             Temperature = 0.0f;
             BeamSize = 5;
             UseGreedyStrategy = false;
-            EndParagraphWithPeriod = false;
-            AutoPunctuation = false;
         }
     }
 }
