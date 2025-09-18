@@ -167,10 +167,6 @@ namespace ForensicWhisperDeskZH.Utils
     <Symbol>-</Symbol>
   </Replacement>
   <Replacement>
-    <Word>Neue Linie</Word>
-    <Symbol>/n</Symbol>
-  </Replacement>
-  <Replacement>
     <Word>Abstand</Word>
     <Symbol>/n/r</Symbol>
   </Replacement>

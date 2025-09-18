@@ -197,7 +197,6 @@ namespace ForensicWhisperDeskZH.Transcription
                 LoggingService.LogMessage($"TranscriptionService: Received audio chunk with {e.AudioData.Length} bytes", "TranscriptionService_OnAudioChunkReady");
                 var transcriptionTask = TranscribeChunkAsync(
                     e.AudioData,
-                    _sessionId,
                     _cancellationTokenSource?.Token ?? CancellationToken.None);
 
                 lock (_taskLock)
@@ -215,7 +214,7 @@ namespace ForensicWhisperDeskZH.Transcription
         /// <summary>
         /// Transcribes an audio chunk
         /// </summary>
-        private async Task<TranscriptionResult> TranscribeChunkAsync(MemoryStream audioBuffer, string sessionId, CancellationToken cancellationToken)
+        private async Task<TranscriptionResult> TranscribeChunkAsync(MemoryStream audioBuffer, CancellationToken cancellationToken)
         {
             // Validate input buffer
             if (audioBuffer == null || audioBuffer.Length == 0)
@@ -252,7 +251,7 @@ namespace ForensicWhisperDeskZH.Transcription
                 }
 
                 // Transcribe using Whisper
-                var result = await _whisperTranscriber.TranscribeAudioFileAsync(tempFile, sessionId, cancellationToken);
+                var result = await _whisperTranscriber.TranscribeAudioFileAsync(tempFile, cancellationToken);
 
                 if (result.Segments.Count == 0)
                 {

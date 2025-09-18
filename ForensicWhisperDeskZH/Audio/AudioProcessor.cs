@@ -76,6 +76,7 @@ namespace ForensicWhisperDeskZH.Audio
 
                 LoggingService.LogMessage($"AudioProcessor: Started capture on device {deviceNumber}", "AudioProcessor_StartCapture", true);
             }
+            
             catch (Exception ex)
             {
                 _isCapturing = false;

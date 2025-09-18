@@ -79,7 +79,22 @@ namespace ForensicWhisperDeskZH.Transcription
         /// <param name="sessionId">Session ID for tracking</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Transcription result</returns>
-        public async Task<TranscriptionResult> TranscribeAudioFileAsync(string audioFilePath, string sessionId, CancellationToken cancellationToken = default)
+        public async Task<TranscriptionResult> TranscribeAudioFileAsync(string audioFilePath, CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+
+            // Use the existing _processorLock to ensure only one transcription happens at a time
+            // This prevents concurrent access to Whisper.net objects which are not thread-safe
+            lock (_processorLock)
+            {
+                return TranscribeAudioFileInternal(audioFilePath, cancellationToken);
+            }
+        }
+
+        /// <summary>
+        /// Internal synchronous transcription method that runs within the lock
+        /// </summary>
+        private TranscriptionResult TranscribeAudioFileInternal(string audioFilePath, CancellationToken cancellationToken)
         {
             ThrowIfDisposed();
 
@@ -90,11 +105,8 @@ namespace ForensicWhisperDeskZH.Transcription
                 var segmentTexts = new List<string>();
                 
                 WhisperProcessor transcriptor = null;
-                lock (_processorLock)
-                {
-                    ThrowIfDisposed(); // Check again inside the lock
-                    transcriptor = CreateWhisperProcessor(incrementalText);
-                }
+                ThrowIfDisposed(); // Check again inside the lock
+                transcriptor = CreateWhisperProcessor(incrementalText);
 
                 if (transcriptor == null)
                 {
@@ -108,7 +120,8 @@ namespace ForensicWhisperDeskZH.Transcription
                         System.Diagnostics.Debug.WriteLine($"WhisperTranscriber: Reading WAV file for processing - Size: {fileStream.Length} bytes");
                         System.Diagnostics.Debug.WriteLine($"WhisperTranscriber: Starting Whisper processing...");
 
-                        await foreach (var segment in transcriptor.ProcessAsync(fileStream, cancellationToken))
+                        // Process synchronously within the lock to prevent concurrent Whisper access
+                        foreach (var segment in transcriptor.Process(fileStream))
                         {
                             // Check for cancellation and disposal frequently
                             cancellationToken.ThrowIfCancellationRequested();

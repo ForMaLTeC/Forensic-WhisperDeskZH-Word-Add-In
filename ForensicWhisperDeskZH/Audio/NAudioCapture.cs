@@ -7,7 +7,8 @@ using System;
 namespace ForensicWhisperDeskZH.Audio
 {
     /// <summary>
-    /// Implements audio capture using NAudio WASAPI library for improved reliability
+    /// Implements audio capture using NAudio 
+    /// library for improved reliability
     /// </summary>
     public class NAudioCapture : IAudioCapture
     {
@@ -52,6 +53,7 @@ namespace ForensicWhisperDeskZH.Audio
 
                 if (_deviceNumber >= devices.Count || _deviceNumber < 0)
                 {
+                    LoggingService.LogMessage($"Invalid device number: {_deviceNumber}. Available devices: 0-{devices.Count - 1}\n", "NAudioCapture", true);
                     throw new ArgumentException($"Invalid device number: {_deviceNumber}. Available devices: 0-{devices.Count - 1}");
                 }
 
