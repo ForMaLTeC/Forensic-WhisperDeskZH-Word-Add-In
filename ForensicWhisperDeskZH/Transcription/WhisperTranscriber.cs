@@ -407,7 +407,7 @@ namespace ForensicWhisperDeskZH.Transcription
             try
             {
                 _transcriptorBuilder
-                    .WithDuration(_settings.ChunkDuration)
+                    .WithDuration(_settings.minChunkDuration)
                     .WithThreads(_settings.Threads)
                     .WithLanguage(_settings.Language)
                     .WithPrintProgress()

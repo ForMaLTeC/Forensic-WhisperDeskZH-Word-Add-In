@@ -263,7 +263,7 @@ namespace ForensicWhisperDeskZH.Audio
             var bytesPerMs = _waveFormat.AverageBytesPerSecond / 1000;
             _audioProcessor = new AudioBufferProcessor(
                 bytesPerMs,
-                _settings.ChunkDuration,
+                _settings.minChunkDuration,
                 _settings.SilenceThreshold);
 
             // Connect events

@@ -172,7 +172,7 @@ namespace ForensicWhisperDeskZH
             LoadLanguages();
 
             // Set UI values from the settings
-            MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.ChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+            MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.minChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
             SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalSeconds.ToString(CultureInfo.InvariantCulture);
 
             _isInitialized = true;
@@ -182,7 +182,7 @@ namespace ForensicWhisperDeskZH
         private void UpdateSettingsView()
         {
             // Set UI values from the settings
-            MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.ChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+            MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.minChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
             SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalSeconds.ToString(CultureInfo.InvariantCulture);
         }
 
@@ -305,7 +305,7 @@ namespace ForensicWhisperDeskZH
                 {
                     MessageBox.Show($"Chunk Size must be longer than {_minChunkSizeInSeconds} seconds",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    ViewModel._transcriptionSettings.ChunkDuration = TimeSpan.FromSeconds(_minChunkSizeInSeconds);
+                    ViewModel._transcriptionSettings.minChunkDuration = TimeSpan.FromSeconds(_minChunkSizeInSeconds);
                     MinChunkSizeInSeconds.Text = _minChunkSizeInSeconds.ToString(CultureInfo.InvariantCulture);
                     return;
                 }
@@ -313,16 +313,16 @@ namespace ForensicWhisperDeskZH
                 {
                     MessageBox.Show($"Chunk Size must be shorter than {_maxChunkSizeInSeconds} seconds.",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    ViewModel._transcriptionSettings.ChunkDuration = TimeSpan.FromSeconds(_maxChunkSizeInSeconds);
+                    ViewModel._transcriptionSettings.minChunkDuration = TimeSpan.FromSeconds(_maxChunkSizeInSeconds);
                     MinChunkSizeInSeconds.Text = _maxChunkSizeInSeconds.ToString(CultureInfo.InvariantCulture);
                     return;
                 }
-                ViewModel._transcriptionSettings.ChunkDuration = TimeSpan.FromSeconds(seconds);
+                ViewModel._transcriptionSettings.minChunkDuration = TimeSpan.FromSeconds(seconds);
             }
             catch
             {
                 // Reset to current value on parse error
-                MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.ChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+                MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.minChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
                 MessageBox.Show("Please enter a valid number for Chunk Size in Seconds.",
                     "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
@@ -348,7 +348,7 @@ namespace ForensicWhisperDeskZH
                     threshold = _maxSilenceThreshold;
                 }
                 SilenceThreshold.Text = threshold.ToString(CultureInfo.InvariantCulture);
-                ViewModel.ChangeSilenceThreshold((int)threshold);
+                ViewModel.ChangeSilenceThreshold(threshold);
             }
             catch
             {

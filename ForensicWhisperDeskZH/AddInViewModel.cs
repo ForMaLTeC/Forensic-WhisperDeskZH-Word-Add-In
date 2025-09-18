@@ -454,7 +454,7 @@ namespace ForensicWhisperDeskZH
             };
         }
 
-        internal void ChangeSilenceThreshold(int threshold)
+        internal void ChangeSilenceThreshold(double threshold)
         {
             _transcriptionSettings.SilenceThreshold = TimeSpan.FromSeconds(threshold);
             _transcriptionService.ChangeSilenceThreshold(threshold);

@@ -27,15 +27,15 @@ namespace ForensicWhisperDeskZH.Transcription
         /// Gets or sets the duration of each audio chunk processed by the transcription engine.
         /// Default is 3 seconds.
         /// </summary>
-        public TimeSpan ChunkDuration
+        public TimeSpan minChunkDuration
         {
-            get => _chunkDuration;
+            get => _minChunkDuration;
             set
             {
-                _chunkDuration = value;
+                _minChunkDuration = value;
             }
         }
-        private TimeSpan _chunkDuration = TimeSpan.FromSeconds(5);
+        private TimeSpan _minChunkDuration = TimeSpan.FromSeconds(5);
 
         /// <summary>
         /// Gets or sets the audio wave format for recording and processing.
@@ -109,7 +109,7 @@ namespace ForensicWhisperDeskZH.Transcription
         {
             InsertionInterval = TimeSpan.FromMilliseconds(100);
             SilenceThreshold = TimeSpan.FromSeconds(1);
-            ChunkDuration = TimeSpan.FromSeconds(3);
+            minChunkDuration = TimeSpan.FromSeconds(3);
             WaveFormat = new WaveFormat(16000, 16, 1);
             Threads = Environment.ProcessorCount;
             TranslateToEnglish = false;

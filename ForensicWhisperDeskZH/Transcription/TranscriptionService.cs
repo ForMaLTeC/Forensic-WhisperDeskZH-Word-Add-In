@@ -176,7 +176,7 @@ namespace ForensicWhisperDeskZH.Transcription
         /// <summary>
         /// Changes the silence threshold
         /// </summary>
-        public void ChangeSilenceThreshold(int silenceThreshold)
+        public void ChangeSilenceThreshold(double silenceThreshold)
         {
             ThrowIfDisposed();
             _settings.SilenceThreshold = TimeSpan.FromSeconds(silenceThreshold);
