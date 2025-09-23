@@ -129,14 +129,14 @@
             // 
             // SilenceThreshold
             // 
-            this.SilenceThreshold.Label = "Dauer der Stille zwischen Wörtern";
+            this.SilenceThreshold.Label = "Dauer der Stille zwischen Wörtern (Millisekunden)";
             this.SilenceThreshold.Name = "SilenceThreshold";
             this.SilenceThreshold.Text = null;
             this.SilenceThreshold.TextChanged += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.SilenceThreshold_TextChanged);
             // 
             // MinChunkSizeInSeconds
             // 
-            this.MinChunkSizeInSeconds.Label = "Minimale Dauer von Audioblöcken";
+            this.MinChunkSizeInSeconds.Label = "Minimale Dauer von Audioblöcken (Sekunden)";
             this.MinChunkSizeInSeconds.Name = "MinChunkSizeInSeconds";
             this.MinChunkSizeInSeconds.Text = null;
             this.MinChunkSizeInSeconds.TextChanged += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.MaxChunkSizeInSeconds_TextChanged);
@@ -157,8 +157,7 @@
             // 
             // StatusLabel
             // 
-            this.StatusLabel.Label = "loreumipsumandsofurthandsoon kei ahnig wies wieter gaht aber hoffe das het alle s" +
-    "platz";
+            this.StatusLabel.Label = "log message";
             this.StatusLabel.Name = "StatusLabel";
             // 
             // MainRibbon

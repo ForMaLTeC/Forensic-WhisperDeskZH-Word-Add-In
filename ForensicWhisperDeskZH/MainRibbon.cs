@@ -13,11 +13,11 @@ namespace ForensicWhisperDeskZH
 {
     public partial class MainRibbon
     {
-        private readonly double _minSilenceThreshold = 0.1; // Minimum silence threshold in seconds
-        private readonly double _maxSilenceThreshold = 10.0; // Maximum silence threshold in seconds
+        private readonly double _minSilenceThreshold = 5; // Minimum silence threshold in seconds
+        private readonly double _maxSilenceThreshold = 1000; // Maximum silence threshold in seconds
 
         private readonly double _minChunkSizeInSeconds = 1.0; // Minimum chunk size in seconds
-        private readonly double _maxChunkSizeInSeconds = 60.0; // Maximum chunk size in seconds
+        private readonly double _maxChunkSizeInSeconds = 30.0; // Maximum chunk size in seconds
 
         private static readonly int _statusLabelLength = 100;
         private static readonly int _maxConcurrentLogMessages = 4;
@@ -173,7 +173,7 @@ namespace ForensicWhisperDeskZH
 
             // Set UI values from the settings
             MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.minChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
-            SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+            SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
 
             _isInitialized = true;
             System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: Initialization completed successfully!");
@@ -183,7 +183,7 @@ namespace ForensicWhisperDeskZH
         {
             // Set UI values from the settings
             MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.minChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
-            SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+            SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
         }
 
         private void LoadMicrophones(bool isRefresh = false)
@@ -337,13 +337,13 @@ namespace ForensicWhisperDeskZH
                 // Validate the threshold value
                 if (threshold < _minSilenceThreshold)
                 {
-                    MessageBox.Show($"Silence Threshold must be longer than {_minSilenceThreshold} seconds",
+                    MessageBox.Show($"Silence Threshold must be longer than {_minSilenceThreshold} milliseconds",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
                     threshold = _minSilenceThreshold;
                 }
                 if (threshold > _maxSilenceThreshold)
                 {
-                    MessageBox.Show($"Silence Threshold must be shorter than {_maxSilenceThreshold} seconds.",
+                    MessageBox.Show($"Silence Threshold must be shorter than {_maxSilenceThreshold} milliseconds.",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
                     threshold = _maxSilenceThreshold;
                 }

@@ -456,8 +456,8 @@ namespace ForensicWhisperDeskZH
 
         internal void ChangeSilenceThreshold(double threshold)
         {
-            _transcriptionSettings.SilenceThreshold = TimeSpan.FromSeconds(threshold);
-            _transcriptionService.ChangeSilenceThreshold(threshold);
+            _transcriptionSettings.SilenceThreshold = TimeSpan.FromMilliseconds(threshold);
+            _transcriptionService.ChangeSilenceThreshold(_transcriptionSettings.SilenceThreshold);
         }
     }
 }

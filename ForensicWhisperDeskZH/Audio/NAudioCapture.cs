@@ -18,7 +18,7 @@ namespace ForensicWhisperDeskZH.Audio
         private bool _isDisposed = false;
         private readonly WaveFormat _desiredFormat;
         private MediaFoundationResampler _resampler;
-        private BufferedWaveProvider _bufferedProvider; // Store reference to the BufferedWaveProvider
+        private BufferedWaveProvider _bufferedProvider; 
 
         public bool IsCapturing => _isCapturing;
 

@@ -65,7 +65,7 @@ namespace ForensicWhisperDeskZH.Transcription
         /// <summary>
         /// Changes the Model Type used for transcription
         /// </summary>
-        void ChangeSilenceThreshold(double threshold);
+        void ChangeSilenceThreshold(TimeSpan threshold);
         void ChangeModelType(GgmlType modelType);
 
     }
