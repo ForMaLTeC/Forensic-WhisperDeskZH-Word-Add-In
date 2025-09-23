@@ -97,6 +97,12 @@ jobs:
     - name: Restore packages for ModelDownloader
       run: dotnet restore ${{ env.MODEL_DOWNLOADER_PATH }}
       
+    - name: Upload User Manual PDF
+      uses: actions/upload-artifact@v3
+      with: 
+        name: User-Manual-PDF
+        path: Documentation/User_Manual_ForensicWhisperDeskZH.pdf
+
     # Build and run ModelDownloader before main build
     - name: Build ModelDownloader (without signing)
       run: dotnet build ${{ env.MODEL_DOWNLOADER_PATH }} --configuration Release --no-restore /p:SignAssembly=false /p:SignManifests=false
