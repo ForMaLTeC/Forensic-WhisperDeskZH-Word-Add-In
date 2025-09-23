@@ -73,66 +73,12 @@ jobs:
         }
 
     # Convert Word Document to PDF
+# .github/workflows/build-and-publish-vsto.yml (snippet)
+
     - name: Convert User Manual to PDF
       run: |
-        Write-Host "=== Converting User Manual to PDF ==="
-        
-        $docxPath = "Documentation\User_Manual_ForensicWhisperDeskZH.docx"
-        $pdfPath = "Documentation\User_Manual_ForensicWhisperDeskZH.pdf"
-        
-        if (-not (Test-Path $docxPath)) {
-          Write-Warning "❌ User manual not found at: $docxPath"
-          Write-Host "Available files in Documentation directory:"
-          if (Test-Path "Documentation") {
-            Get-ChildItem "Documentation" | ForEach-Object { Write-Host "  $($_.Name)" }
-          } else {
-            Write-Host "Documentation directory does not exist"
-          }
-          exit 1
-        }
-        
-        try {
-          Write-Host "📄 Converting $docxPath to $pdfPath..."
-          
-          # Create Word Application COM object
-          $word = New-Object -ComObject Word.Application
-          $word.Visible = $false
-          $word.DisplayAlerts = 0  # Disable alerts
-          
-          # Open the document
-          $doc = $word.Documents.Open((Resolve-Path $docxPath).Path)
-          
-          # Export as PDF (wdExportFormatPDF = 17)
-          $doc.ExportAsFixedFormat((Resolve-Path (Split-Path $pdfPath)).Path + "\" + (Split-Path $pdfPath -Leaf), 17)
-          
-          # Close document and quit Word
-          $doc.Close()
-          $word.Quit()
-          
-          # Release COM objects
-          [System.Runtime.Interopservices.Marshal]::ReleaseComObject($doc) | Out-Null
-          [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
-          [System.GC]::Collect()
-          [System.GC]::WaitForPendingFinalizers()
-          
-          if (Test-Path $pdfPath) {
-            $pdfSize = [math]::Round((Get-Item $pdfPath).Length / 1KB, 1)
-            Write-Host "✅ Successfully converted to PDF: $pdfPath ($pdfSize KB)"
-          } else {
-            throw "PDF file was not created"
-          }
-          
-        } catch {
-          Write-Error "❌ Failed to convert Word document to PDF: $($_.Exception.Message)"
-          
-          # Cleanup in case of error
-          try {
-            if ($doc) { $doc.Close() }
-            if ($word) { $word.Quit() }
-          } catch { }
-          
-          exit 1
-        }
+        pip install docx2pdf
+        python -m docx2pdf Documentation/User_Manual_ForensicWhisperDeskZH.docx Documentation/User_Manual_ForensicWhisperDeskZH.pdf
         
     - name: Setup GitVersion
       uses: gittools/actions/gitversion/setup@v0.9.15
