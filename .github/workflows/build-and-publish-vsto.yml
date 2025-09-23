@@ -100,7 +100,7 @@ jobs:
     - name: Upload User Manual PDF
       uses: actions/upload-artifact@v4
       with: 
-        name: User-Manual-PDF
+        name: User-Manual-PDF-${{ needs.build.outputs.sanitized-name }}
         path: Documentation/User_Manual_ForensicWhisperDeskZH.pdf
 
     # Build and run ModelDownloader before main build
