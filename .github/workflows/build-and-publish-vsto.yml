@@ -14,7 +14,7 @@ env:
   PUBLISH_URL: 'https://your-domain.com/vsto/'
   APPLICATION_NAME: 'ForensicWhisperDeskZH'
   # Define which models to download for production
-  WHISPER_MODELS: 'base'
+  WHISPER_MODELS: 'base, large'
 
 jobs:
   build:
@@ -264,37 +264,6 @@ jobs:
         
         # Clean any previous builds to ensure fresh state
         msbuild ${{ env.PROJECT_PATH }} /t:Clean /p:Configuration=Release /p:Platform="x64"
-        
-        # Pre-stage runtime dependencies BEFORE build to ensure they're included in publish
-        Write-Host "=== Pre-staging Runtime Dependencies ==="
-        $binDir = "ForensicWhisperDeskZH\bin\x64\Release"
-        $packagesDir = "packages"
-        
-        # Ensure bin directory exists
-        New-Item -ItemType Directory -Force -Path $binDir
-        
-        # Define the key managed assemblies that MUST be available before publish
-        $requiredAssemblies = @{
-          "Whisper.net.dll" = "$packagesDir\Whisper.net.*\lib\net*\Whisper.net.dll"
-          "WebRtcVadSharp.dll" = "$packagesDir\WebRtcVadSharp.*\lib\net*\WebRtcVadSharp.dll"
-          "NAudio.dll" = "$packagesDir\NAudio.*\lib\net*\NAudio.dll"
-          "NAudio.Core.dll" = "$packagesDir\NAudio.Core.*\lib\net*\NAudio.Core.dll"
-          "NAudio.Wasapi.dll" = "$packagesDir\NAudio.Wasapi.*\lib\net*\NAudio.Wasapi.dll"
-          "NAudio.WinMM.dll" = "$packagesDir\NAudio.WinMM.*\lib\net*\NAudio.WinMM.dll"
-          "Newtonsoft.Json.dll" = "$packagesDir\Newtonsoft.Json.*\lib\net*\Newtonsoft.Json.dll"
-        }
-        
-        foreach ($assemblyName in $requiredAssemblies.Keys) {
-          $targetPath = Join-Path $binDir $assemblyName
-          $pattern = $requiredAssemblies[$assemblyName]
-          $sourceFile = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
-          
-          if ($sourceFile) {
-            Copy-Item $sourceFile.FullName $targetPath -Force
-            $size = [math]::Round($sourceFile.Length / 1KB, 1)
-            Write-Host "✅ Pre-staged assembly: $assemblyName ($size KB)"
-          }
-        }
         
 
         
