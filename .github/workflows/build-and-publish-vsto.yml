@@ -32,7 +32,7 @@ jobs:
         fetch-depth: 0
         lfs: true  # CRITICAL: Enable Git LFS checkout
         
-    # NEW: Explicit Git LFS pull to ensure all LFS files are downloaded
+    # Explicit Git LFS pull to ensure all LFS files are downloaded
     - name: Git LFS Pull
       run: |
         Write-Host "=== Git LFS Status Check ==="
@@ -70,6 +70,68 @@ jobs:
               Write-Warning "❌ LFS tracked file not found: $filePath"
             }
           }
+        }
+
+    # Convert Word Document to PDF
+    - name: Convert User Manual to PDF
+      run: |
+        Write-Host "=== Converting User Manual to PDF ==="
+        
+        $docxPath = "Documentation\User_Manual_ForensicWhisperDeskZH.docx"
+        $pdfPath = "Documentation\User_Manual_ForensicWhisperDeskZH.pdf"
+        
+        if (-not (Test-Path $docxPath)) {
+          Write-Warning "❌ User manual not found at: $docxPath"
+          Write-Host "Available files in Documentation directory:"
+          if (Test-Path "Documentation") {
+            Get-ChildItem "Documentation" | ForEach-Object { Write-Host "  $($_.Name)" }
+          } else {
+            Write-Host "Documentation directory does not exist"
+          }
+          exit 1
+        }
+        
+        try {
+          Write-Host "📄 Converting $docxPath to $pdfPath..."
+          
+          # Create Word Application COM object
+          $word = New-Object -ComObject Word.Application
+          $word.Visible = $false
+          $word.DisplayAlerts = 0  # Disable alerts
+          
+          # Open the document
+          $doc = $word.Documents.Open((Resolve-Path $docxPath).Path)
+          
+          # Export as PDF (wdExportFormatPDF = 17)
+          $doc.ExportAsFixedFormat((Resolve-Path (Split-Path $pdfPath)).Path + "\" + (Split-Path $pdfPath -Leaf), 17)
+          
+          # Close document and quit Word
+          $doc.Close()
+          $word.Quit()
+          
+          # Release COM objects
+          [System.Runtime.Interopservices.Marshal]::ReleaseComObject($doc) | Out-Null
+          [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
+          [System.GC]::Collect()
+          [System.GC]::WaitForPendingFinalizers()
+          
+          if (Test-Path $pdfPath) {
+            $pdfSize = [math]::Round((Get-Item $pdfPath).Length / 1KB, 1)
+            Write-Host "✅ Successfully converted to PDF: $pdfPath ($pdfSize KB)"
+          } else {
+            throw "PDF file was not created"
+          }
+          
+        } catch {
+          Write-Error "❌ Failed to convert Word document to PDF: $($_.Exception.Message)"
+          
+          # Cleanup in case of error
+          try {
+            if ($doc) { $doc.Close() }
+            if ($word) { $word.Quit() }
+          } catch { }
+          
+          exit 1
         }
         
     - name: Setup GitVersion
@@ -525,6 +587,15 @@ jobs:
         retention-days: 1  # Only keep for release job
       id: upload_artifact
 
+    # Upload PDF documentation as separate artifact
+    - name: Upload PDF Documentation
+      uses: actions/upload-artifact@v4
+      with:
+        name: User-Manual-PDF-${{ steps.sanitize_name.outputs.SANITIZED_NAME }}
+        path: Documentation\User_Manual_ForensicWhisperDeskZH.pdf
+        retention-days: 1
+      id: upload_pdf
+
   release:
     runs-on: windows-latest
     needs: build
@@ -541,6 +612,13 @@ jobs:
       with:
         name: ${{ needs.build.outputs.artifact-name }}
         path: ./release-artifacts
+
+    # Download PDF documentation
+    - name: Download PDF Documentation
+      uses: actions/download-artifact@v4
+      with:
+        name: User-Manual-PDF-${{ needs.build.outputs.sanitized-name }}
+        path: ./pdf-documentation
 
     - name: Create Release
       uses: actions/create-release@v1
@@ -566,6 +644,9 @@ jobs:
           1. **Download ALL parts** (VSTO-Addin-Package-v${{ needs.build.outputs.version }}.zip.001, .002, etc.)
           2. **Extract using 7-Zip** - right-click the .001 file and extract
           3. **Run `setup.exe`** from the extracted files **as Administrator**
+
+          ### Documentation
+          📖 **User Manual** - Download the complete user manual in PDF format for detailed installation and usage instructions.
 
           ### Key Points for Users:
           1. **Download ALL parts** - The split archive won't work unless all parts are present
@@ -655,5 +736,42 @@ jobs:
               $responseBody = $reader.ReadToEnd()
               Write-Host "Response body: $responseBody"
             }
+          }
+        }
+
+    # Upload PDF documentation to release
+    - name: Upload PDF Documentation to Release
+      run: |
+        Write-Host "=== Uploading PDF Documentation to Release ==="
+        
+        $pdfFile = Get-ChildItem -Path ".\pdf-documentation" -Filter "*.pdf" | Select-Object -First 1
+        
+        if (-not $pdfFile) {
+          Write-Error "❌ PDF documentation file not found"
+          exit 1
+        }
+        
+        Write-Host "📄 Found PDF file: $($pdfFile.Name)"
+        Write-Host "📄 File size: $([math]::Round($pdfFile.Length / 1KB, 1)) KB"
+        
+        $headers = @{
+          'Authorization' = 'token ${{ secrets.GITHUB_TOKEN }}'
+          'Content-Type' = 'application/pdf'
+        }
+        
+        $uploadUrl = "${{ steps.create_release.outputs.upload_url }}".Replace('{?name,label}', "?name=$($pdfFile.Name)")
+        Write-Host "Upload URL: $uploadUrl"
+        
+        try {
+          $response = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -InFile $pdfFile.FullName
+          Write-Host "✅ Successfully uploaded PDF documentation: $($pdfFile.Name)"
+          Write-Host "📄 Download URL: $($response.browser_download_url)"
+        } catch {
+          Write-Error "❌ Failed to upload PDF documentation: $($_.Exception.Message)"
+          Write-Host "Exception details: $($_.Exception)"
+          if ($_.Exception.Response) {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $responseBody = $reader.ReadToEnd()
+            Write-Host "Response body: $responseBody"
           }
         }
