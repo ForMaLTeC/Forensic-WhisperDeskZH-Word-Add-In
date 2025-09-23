@@ -14,7 +14,7 @@ env:
   PUBLISH_URL: 'https://your-domain.com/vsto/'
   APPLICATION_NAME: 'ForensicWhisperDeskZH'
   # Define which models to download for production
-  WHISPER_MODELS: 'base,large'
+  WHISPER_MODELS: 'base'
 
 jobs:
   build:
