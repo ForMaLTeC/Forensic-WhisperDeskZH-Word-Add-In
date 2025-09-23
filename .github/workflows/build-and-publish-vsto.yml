@@ -110,7 +110,7 @@ jobs:
         New-Item -ItemType Directory -Force -Path $modelsDir
         Write-Host "Created models directory: $modelsDir"
         
-        # IMPORTANT: Check if we already have LFS models before downloading
+        # Check if we already have LFS models before downloading
         Write-Host "=== Checking for existing LFS model files ==="
         $existingModels = Get-ChildItem -Path $modelsDir -Filter "*.bin" -ErrorAction SilentlyContinue
         foreach ($model in $existingModels) {
