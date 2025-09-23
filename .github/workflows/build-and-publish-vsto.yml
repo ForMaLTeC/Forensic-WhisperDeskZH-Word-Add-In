@@ -72,13 +72,6 @@ jobs:
           }
         }
 
-    # Convert Word Document to PDF
-
-    - name: Convert User Manual to PDF
-      run: |
-        pip install docx2pdf
-        docx2pdf Documentation/User_Manual_ForensicWhisperDeskZH.docx Documentation/User_Manual_ForensicWhisperDeskZH.pdf
-        
     - name: Setup GitVersion
       uses: gittools/actions/gitversion/setup@v0.9.15
       with:
