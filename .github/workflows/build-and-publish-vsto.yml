@@ -14,7 +14,7 @@ env:
   PUBLISH_URL: 'https://your-domain.com/vsto/'
   APPLICATION_NAME: 'ForensicWhisperDeskZH'
   # Define which models to download for production
-  WHISPER_MODELS: 'base, large'
+  WHISPER_MODELS: 'base'
 
 jobs:
   build:
@@ -296,68 +296,7 @@ jobs:
           }
         }
         
-        # Pre-stage native libraries in bin directory for VSTO to pick up
-        Write-Host "=== Pre-staging Native Libraries ==="
-        
-        # Create runtimes directory structure in bin
-        $runtimesDir = Join-Path $binDir "runtimes"
-        New-Item -ItemType Directory -Force -Path $runtimesDir
-        
-        # Copy Whisper.net native libraries WITH SIZE VERIFICATION
-        $whisperRuntimePaths = @(
-          "$packagesDir\Whisper.net.Runtime.*\runtimes",
-          "$packagesDir\Whisper.net.AllRuntimes.*\runtimes"
-        )
-        
-        foreach ($pattern in $whisperRuntimePaths) {
-          if (Test-Path $pattern) {
-            Write-Host "Copying runtime from: $pattern"
-            Copy-Item -Path "$pattern\*" -Destination $runtimesDir -Recurse -Force
-            
-            # Verify the copied files
-            Get-ChildItem -Path $runtimesDir -Recurse -File | ForEach-Object {
-              $sizeKB = [math]::Round($_.Length / 1KB, 1)
-              $status = if ($_.Length -lt 1000) { " ⚠️  SUSPICIOUS" } else { " ✅" }
-              Write-Host "    Copied: $($_.Name) - $sizeKB KB$status"
-            }
-          }
-        }
-        
-        # Copy WebRtcVad native libraries WITH SIZE VERIFICATION
-        $vadPaths = @(
-          "$packagesDir\WebRtcVadSharp.*\runtimes",
-          "$packagesDir\WebRtcVadSharp.*\lib\native"
-        )
-        
-        foreach ($pattern in $vadPaths) {
-          if (Test-Path $pattern) {
-            Write-Host "Copying VAD runtime from: $pattern"
-            Copy-Item -Path "$pattern\*" -Destination $runtimesDir -Recurse -Force
-          }
-        }
-        
-        # Also copy native libraries directly to bin for immediate access WITH SIZE VERIFICATION
-        $whisperNativePaths = @(
-          "$packagesDir\Whisper.net.Runtime.*\runtimes\win-x64\native\*",
-          "$packagesDir\Whisper.net.AllRuntimes.*\runtimes\win-x64\native\*"
-        )
-        
-        foreach ($pattern in $whisperNativePaths) {
-          $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
-          foreach ($file in $files) {
-            $targetPath = Join-Path $binDir $file.Name
-            Copy-Item $file.FullName $targetPath -Force
-            $sizeKB = [math]::Round($file.Length / 1KB, 1)
-            $status = if ($file.Length -lt 1000) { " ⚠️  SUSPICIOUS" } else { " ✅" }
-            Write-Host "✅ Pre-staged native: $($file.Name) ($sizeKB KB)$status"
-            
-            # Fail build if we detect LFS pointer files in native libraries
-            if ($file.Length -lt 1000 -and $file.Name -like "*.dll") {
-              Write-Error "❌ CRITICAL: Native library $($file.Name) appears to be an LFS pointer file ($(file.Length) bytes). This will cause runtime failures."
-              exit 1
-            }
-          }
-        }
+
         
         # Now perform the integrated build and publish in one step
         Write-Host "=== Performing Integrated Build and Publish ==="
