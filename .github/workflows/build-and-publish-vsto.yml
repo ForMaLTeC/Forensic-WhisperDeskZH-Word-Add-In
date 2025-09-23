@@ -73,12 +73,11 @@ jobs:
         }
 
     # Convert Word Document to PDF
-# .github/workflows/build-and-publish-vsto.yml (snippet)
 
     - name: Convert User Manual to PDF
       run: |
         pip install docx2pdf
-        python -m docx2pdf Documentation/User_Manual_ForensicWhisperDeskZH.docx Documentation/User_Manual_ForensicWhisperDeskZH.pdf
+        docx2pdf Documentation/User_Manual_ForensicWhisperDeskZH.docx Documentation/User_Manual_ForensicWhisperDeskZH.pdf
         
     - name: Setup GitVersion
       uses: gittools/actions/gitversion/setup@v0.9.15
