@@ -60,7 +60,7 @@ namespace ForensicWhisperDeskZH.Audio
                 var selectedDevice = devices[_deviceNumber];
 
                 // Create WASAPI capture with the selected device - use shared mode with smaller buffer
-                _wasapiCapture = new WasapiCapture(selectedDevice, false, 20); // Use exclusive mode=false, 20ms buffer
+                _wasapiCapture = new WasapiCapture(selectedDevice, true, 20); // Use exclusive mode=false, 20ms buffer
 
                 // Set up event handlers
                 _wasapiCapture.DataAvailable += OnDataAvailable;

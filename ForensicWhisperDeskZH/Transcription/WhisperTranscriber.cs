@@ -155,16 +155,12 @@ namespace ForensicWhisperDeskZH.Transcription
                                 continue;
                             }
 
-                            // Process the text
-                            string processedText = _textProcessor.ProcessTranscribedText(segment.Text);
-                            segmentTexts.Add(processedText);
+                            segmentTexts.Add(segment.Text);
 
-                            // Create result segment with empty sessionId since it's not passed to this method
                             resultSegments.Add(new TranscriptionSegment(
-                                processedText,
+                                segment.Text,
                                 segment.Start,
-                                segment.End,
-                                string.Empty));
+                                segment.End));
                         }
                     }
                 }
@@ -185,7 +181,7 @@ namespace ForensicWhisperDeskZH.Transcription
                 fullText = string.Join(incrementalText, segmentTexts);
                 System.Diagnostics.Debug.WriteLine($"WhisperTranscriber: Completed processing - Full text: '{fullText}'");
 
-                return new TranscriptionResult(fullText, fullText, resultSegments);
+                return new TranscriptionResult(fullText, incrementalText, resultSegments);
             }
             catch (OperationCanceledException)
             {

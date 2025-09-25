@@ -117,5 +117,17 @@ namespace ForensicWhisperDeskZH.Transcription
             BeamSize = 5;
             UseGreedyStrategy = false;
         }
+
+        /// <summary>
+        /// Gets or sets whether to apply German capitalization rules for nouns.
+        /// Default is true when language is German.
+        /// </summary>
+        public bool ApplyGermanCapitalization { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the path to German dictionary files for spell checking.
+        /// Default is "Dictionaries/de_DE".
+        /// </summary>
+        public string GermanDictionaryPath { get; set; } = "Dictionaries/de_DE";
     }
 }

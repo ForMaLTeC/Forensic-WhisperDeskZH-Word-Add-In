@@ -18,8 +18,7 @@ namespace ForensicWhisperDeskZH
     {
         private readonly ITranscriptionServiceProvider _transcriptionProvider;
         private readonly IDocumentService _documentService;
-
-        private static Dictionary<string, string> _keywordsToReplace;
+        private readonly TextProcessor _textProcessor;
 
         private ITranscriptionService _transcriptionService;
         private int _selectedDeviceNumber = 0;
@@ -60,9 +59,10 @@ namespace ForensicWhisperDeskZH
             _transcriptionProvider = transcriptionProvider ?? throw new ArgumentNullException(nameof(transcriptionProvider));
             _documentService = documentService ?? throw new ArgumentNullException(nameof(documentService));
             _transcriptionSettings = settings ?? TranscriptionSettings.Default;
-            _keywordsToReplace = keywordReplacements ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            
+            // Initialize TextProcessor with settings and keyword replacements
+            _textProcessor = new TextProcessor(_transcriptionSettings, keywordReplacements);
 
-            // Remove TextBufferService dependency
             InitializeTextInsertion();
         }
 
@@ -82,14 +82,12 @@ namespace ForensicWhisperDeskZH
             return viewModel;
         }
 
-
         private async Task InitializeAsync()
         {
             try
             {
                 _transcriptionService = await _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings, this.OnDictationStateChanged);
                
-
                 if (_transcriptionService != null)
                 {
                     // Set up event handlers
@@ -129,8 +127,6 @@ namespace ForensicWhisperDeskZH
                 // Create new service asynchronously but wait for completion
                 var task = _transcriptionProvider.CreateTranscriptionServiceAsync(_transcriptionSettings, this.OnDictationStateChanged).Result;
 
-                //task.Wait(500); // 0.5 second timeout
-
                 if (task != null)
                 {
                     _transcriptionService = task;
@@ -148,7 +144,6 @@ namespace ForensicWhisperDeskZH
                 OnErrorOccurred($"Failed to reset transcription settings: {ex.Message}", ex);
                 return false;
             }
-
         }
 
         public bool ToggleListeningMode()
@@ -185,7 +180,7 @@ namespace ForensicWhisperDeskZH
                 }
                 // Start transcription in listening mode
                 _transcriptionService.ToggleTranscription(HandleTranscribedTextListeningMode, _transcriptionSettings, _selectedDeviceNumber);
-                LoggingService.LogMessage("Listening mode started.", "AddInViewModel_StartListeningMode",true);
+                LoggingService.LogMessage("Listening mode started.", "AddInViewModel_StartListeningMode", true);
                 return true;
             }
             catch (Exception ex)
@@ -209,14 +204,12 @@ namespace ForensicWhisperDeskZH
                     return true;
                 }
                 return false;
-                
             }
             catch (Exception e)
             {
                 LoggingService.LogError(e.Message, e, "AddInViewModel.StopTranscription");
                 return false;
             }
-            //_textBufferService.Stop();
         }
 
         /// <summary>
@@ -234,7 +227,6 @@ namespace ForensicWhisperDeskZH
             {
                 // Start or stop transcription
                 _transcriptionService.ToggleTranscription(HandleTranscribedText, _transcriptionSettings, _selectedDeviceNumber);
-
                 return true;
             }
             catch (Exception ex)
@@ -260,8 +252,8 @@ namespace ForensicWhisperDeskZH
             if (string.IsNullOrEmpty(text))
                 return;
 
-            // Apply keyword replacements immediately
-            text = ApplyKeywordReplacements(text);
+            // Process text through TextProcessor (includes keyword replacement and formatting)
+            text = _textProcessor.ProcessTranscribedText(text);
 
             lock (_accumulatorLock)
             {
@@ -294,23 +286,6 @@ namespace ForensicWhisperDeskZH
                     OnErrorOccurred($"Error inserting text: {ex.Message}", ex);
                 }
             }
-        }
-
-        private string ApplyKeywordReplacements(string text)
-        {
-            if (_keywordsToReplace.Count == 0)
-                return text;
-
-            var words = text.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < words.Length; i++)
-            {
-                if (_keywordsToReplace.TryGetValue(words[i], out var replacement))
-                {
-                    words[i] = replacement;
-                }
-            }
-
-            return string.Join(" ", words);
         }
 
         private void HandleTranscribedTextListeningMode(string text)
@@ -413,6 +388,7 @@ namespace ForensicWhisperDeskZH
 
                 System.Threading.Thread.Sleep(500);
                 _transcriptionService?.Dispose();
+                _textProcessor?.Dispose();
                 _isDisposed = true;
             }
             catch (Exception ex)
