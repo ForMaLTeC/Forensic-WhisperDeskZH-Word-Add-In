@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [ main, develop]
+    branches: [ main, develop ]
     tags: [ 'v*' ]
 
 env:
@@ -14,7 +14,7 @@ env:
   PUBLISH_URL: 'https://your-domain.com/vsto/'
   APPLICATION_NAME: 'ForensicWhisperDeskZH'
   # Define which models to download for production
-  WHISPER_MODELS: 'base,large'
+  WHISPER_MODELS: 'base, large, turbo'
 
 jobs:
   build:
@@ -30,7 +30,48 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        lfs: true  # CRITICAL: Enable Git LFS checkout
         
+    # Explicit Git LFS pull to ensure all LFS files are downloaded
+    - name: Git LFS Pull
+      run: |
+        Write-Host "=== Git LFS Status Check ==="
+        git lfs version
+        
+        Write-Host "=== Git LFS Files Tracking Status ==="
+        git lfs ls-files
+        
+        Write-Host "=== Pulling Git LFS Files ==="
+        git lfs pull
+        
+        Write-Host "=== Verifying LFS Files After Pull ==="
+        
+        # Check if any tracked files are still pointer files (should be actual content now)
+        $lfsFiles = git lfs ls-files
+        foreach ($line in $lfsFiles) {
+          if ($line -match '(\S+)\s+\*\s+(.+)') {
+            $hash = $matches[1]
+            $filePath = $matches[2]
+            
+            if (Test-Path $filePath) {
+              $fileSize = (Get-Item $filePath).Length
+              $fileSizeMB = [math]::Round($fileSize / 1MB, 2)
+              
+              if ($fileSize -lt 200) {
+                Write-Warning "⚠️  LFS file appears to still be a pointer: $filePath ($fileSize bytes)"
+                
+                # Show file content for debugging
+                Write-Host "File content preview:"
+                Get-Content $filePath -TotalCount 3
+              } else {
+                Write-Host "✅ LFS file properly downloaded: $filePath ($fileSizeMB MB)"
+              }
+            } else {
+              Write-Warning "❌ LFS tracked file not found: $filePath"
+            }
+          }
+        }
+
     - name: Setup GitVersion
       uses: gittools/actions/gitversion/setup@v0.9.15
       with:
@@ -56,6 +97,12 @@ jobs:
     - name: Restore packages for ModelDownloader
       run: dotnet restore ${{ env.MODEL_DOWNLOADER_PATH }}
       
+    - name: Upload User Manual PDF
+      uses: actions/upload-artifact@v4
+      with: 
+        name: User-Manual-PDF-${{ needs.build.outputs.sanitized-name }}
+        path: Documentation/User_Manual_ForensicWhisperDeskZH.pdf
+
     # Build and run ModelDownloader before main build
     - name: Build ModelDownloader (without signing)
       run: dotnet build ${{ env.MODEL_DOWNLOADER_PATH }} --configuration Release --no-restore /p:SignAssembly=false /p:SignManifests=false
@@ -68,6 +115,18 @@ jobs:
         $modelsDir = "ForensicWhisperDeskZH\Models"
         New-Item -ItemType Directory -Force -Path $modelsDir
         Write-Host "Created models directory: $modelsDir"
+        
+        # Check if we already have LFS models before downloading
+        Write-Host "=== Checking for existing LFS model files ==="
+        $existingModels = Get-ChildItem -Path $modelsDir -Filter "*.bin" -ErrorAction SilentlyContinue
+        foreach ($model in $existingModels) {
+          $sizeInMB = $model.Length / 1MB
+          if ($model.Length -gt 1000000) {  # > 1MB means it's likely real content, not LFS pointer
+            Write-Host "✅ Found existing valid model: $($model.Name) - $([math]::Round($sizeInMB, 1)) MB"
+          } else {
+            Write-Warning "⚠️  Found suspicious model file (might be LFS pointer): $($model.Name) - $($model.Length) bytes"
+          }
+        }
         
         # Parse the models from environment variable - keep as comma-separated
         $modelsString = "${{ env.WHISPER_MODELS }}"
@@ -106,8 +165,12 @@ jobs:
             
             if (Test-Path $filePath) {
               $fileSize = (Get-Item $filePath).Length / 1MB
-              Write-Host "Model $model already exists ($([math]::Round($fileSize, 1)) MB) - skipping"
-              continue
+              if ($fileSize -gt 1) {  # Only skip if it's a real file, not LFS pointer
+                Write-Host "Model $model already exists ($([math]::Round($fileSize, 1)) MB) - skipping"
+                continue
+              } else {
+                Write-Warning "Model $model file exists but is suspiciously small ($([math]::Round($fileSize, 3)) MB) - re-downloading"
+              }
             }
             
             Write-Host "⬇️  Downloading $model model from $downloadUrl..."
@@ -122,12 +185,13 @@ jobs:
           }
         }
         
-        # Verify downloaded models
-        Write-Host "Verifying downloaded models:"
+        # Verify downloaded models with size validation
+        Write-Host "=== Final Model Verification ==="
         if (Test-Path $modelsDir) {
           Get-ChildItem -Path $modelsDir -Filter "*.bin" | ForEach-Object {
             $sizeInMB = $_.Length / 1MB
-            Write-Host "    $($_.Name) - $([math]::Round($sizeInMB, 1)) MB"
+            $status = if ($_.Length -lt 1000000) { " ⚠️  SUSPICIOUS SIZE" } else { " ✅" }
+            Write-Host "    $($_.Name) - $([math]::Round($sizeInMB, 1)) MB$status"
           }
         }
         
@@ -153,11 +217,167 @@ jobs:
     - name: Restore NuGet packages for solution
       run: nuget restore ${{ env.SOLUTION_PATH }}
 
-    - name: Build Word Add-In
-      run: msbuild ${{ env.SOLUTION_PATH }} /t:publish /p:Configuration=Release /p:PublishDir=.\publish\ /p:PublishUrl=.\publish\
+    # ENHANCED: Verify LFS files in packages before build
+    - name: Verify Package Dependencies and LFS Files
+      run: |
+        Write-Host "=== Verifying Package Dependencies and LFS Files ==="
+        $packagesDir = "packages"
+        
+        if (Test-Path $packagesDir) {
+          Write-Host "📦 Packages directory contents:"
+          Get-ChildItem -Path $packagesDir | ForEach-Object {
+            Write-Host "  $($_.Name)"
+          }
+          
+          # Check for Whisper.net runtime files
+          $whisperRuntimePaths = @(
+            "$packagesDir\Whisper.net.Runtime.*\runtimes\win-x64\native\*",
+            "$packagesDir\Whisper.net.AllRuntimes.*\runtimes\win-x64\native\*"
+          )
+          
+          Write-Host "🔍 Checking Whisper.net native libraries:"
+          foreach ($pattern in $whisperRuntimePaths) {
+            $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
+            foreach ($file in $files) {
+              $sizeKB = [math]::Round($file.Length / 1KB, 1)
+              $status = if ($file.Length -lt 1000) { " ⚠️  SUSPICIOUS" } else { " ✅" }
+              Write-Host "    $($file.Name) - $sizeKB KB$status"
+            }
+          }
+          
+          # Check WebRtcVad files
+          Write-Host "🔍 Checking WebRtcVad native libraries:"
+          $vadPaths = @(
+            "$packagesDir\WebRtcVadSharp.*\runtimes\win-x64\native\*"
+          )
+          
+          foreach ($pattern in $vadPaths) {
+            $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
+            foreach ($file in $files) {
+              $sizeKB = [math]::Round($file.Length / 1KB, 1)
+              $status = if ($file.Length -lt 1000) { " ⚠️  SUSPICIOUS" } else { " ✅" }
+              Write-Host "    $($file.Name) - $sizeKB KB$status"
+            }
+          }
+        } else {
+          Write-Warning "❌ Packages directory not found"
+        }
 
-    # Debug step to find the actual output paths
-    - name: List build output directories
+    # FIXED: Single integrated build and publish step to prevent file corruption
+    - name: Build and Publish VSTO Add-In (Integrated)
+      run: |
+        Write-Host "=== Integrated Build and Publish for VSTO Project ==="
+        
+        # Clean any previous builds to ensure fresh state
+        msbuild ${{ env.PROJECT_PATH }} /t:Clean /p:Configuration=Release /p:Platform="x64"
+        
+
+        
+        # Now perform the integrated build and publish in one step
+        Write-Host "=== Performing Integrated Build and Publish ==="
+        
+        msbuild ${{ env.PROJECT_PATH }} `
+          /t:Restore`;Build`;Publish `
+          /p:Configuration=Release `
+          /p:Platform="x64" `
+          /p:PublishDir=publish\ `
+          /p:PublishUrl="${{ env.PUBLISH_URL }}" `
+          /p:InstallUrl="${{ env.PUBLISH_URL }}" `
+          /p:ApplicationName="${{ env.APPLICATION_NAME }}" `
+          /p:ProductName="${{ env.APPLICATION_NAME }}" `
+          /p:BootstrapperEnabled=true `
+          /p:CreateWebPageOnPublish=false `
+          /p:AutorunEnabled=true `
+          /p:ApplicationRevision=1 `
+          /p:ApplicationVersion="${{ steps.gitversion.outputs.assemblySemVer }}" `
+          /p:UseApplicationTrust=false `
+          /p:PublishWizardShown=false `
+          /p:IncludeNativeFilesInPublish=true `
+          /maxcpucount:1
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "Build and Publish failed with exit code $LASTEXITCODE"
+          exit 1
+        }
+
+    # ENHANCED: Better verification with file integrity checks
+    - name: Verify VSTO Publish Output with Integrity Checks
+      run: |
+        Write-Host "=== Enhanced VSTO Publish Verification ==="
+        
+        $publishDir = "ForensicWhisperDeskZH\publish"
+        if (-not (Test-Path $publishDir)) {
+          Write-Error "❌ Publish directory not found: $publishDir"
+          exit 1
+        }
+        
+        Write-Host "📁 Publish directory contents with integrity checks:"
+        $suspiciousCount = 0
+        Get-ChildItem -Path $publishDir -Recurse | ForEach-Object {
+          $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+          $status = ""
+          
+          # Flag suspicious small files that should be larger
+          if (-not $_.PSIsContainer) {
+            if ($_.Name -like "*.dll.deploy" -and $_.Length -lt 1000) {
+              $status = " ⚠️  SUSPICIOUS SIZE (LFS pointer?)"
+              $suspiciousCount++
+            } elseif ($_.Name -like "ggml-*.bin.deploy" -and $_.Length -lt 1000000) {  # Model files should be > 1MB
+              $status = " ⚠️  SUSPICIOUS SIZE (LFS pointer?)"
+              $suspiciousCount++
+            } elseif ($_.Name -like "whisper*.dll.deploy" -and $_.Length -lt 1000) {
+              $status = " ⚠️  SUSPICIOUS SIZE (LFS pointer?)"
+              $suspiciousCount++
+            }
+          }
+          
+          Write-Host "  $($_.Name) - $size$status"
+        }
+        
+        # Verify key VSTO files are present
+        $requiredFiles = @("setup.exe", "*.vsto", "*.dll.manifest", "*.application")
+        foreach ($pattern in $requiredFiles) {
+          $found = Get-ChildItem -Path $publishDir -Filter $pattern -Recurse
+          if ($found) {
+            Write-Host "✅ Found required file(s): $($found.Name -join ', ')"
+          } else {
+            Write-Warning "❌ Missing required VSTO file pattern: $pattern"
+          }
+        }
+        
+        # Verify main DLL size and flag if suspicious
+        $publishedDll = Get-ChildItem -Path $publishDir -Filter "ForensicWhisperDeskZH.dll.deploy" -Recurse
+        if ($publishedDll) {
+          $dllSize = [math]::Round($publishedDll.Length / 1KB, 1)
+          Write-Host "=== Published Main DLL Size: $dllSize KB ==="
+          
+          if ($dllSize -lt 500) {
+            Write-Error "❌ Main DLL size ($dllSize KB) is suspiciously small - likely missing dependencies or corrupted"
+            exit 1
+          } else {
+            Write-Host "✅ Main DLL size looks reasonable"
+          }
+        }
+        
+        # Check for corrupted native libraries
+        $suspiciousFiles = Get-ChildItem -Path $publishDir -Recurse -Filter "*.dll.deploy" | Where-Object { $_.Length -lt 1000 -and $_.Name -notlike "*ggml-whisper.dll*" }
+        if ($suspiciousFiles) {
+          Write-Warning "❌ Found potentially corrupted DLL files:"
+          $suspiciousFiles | ForEach-Object {
+            Write-Warning "  $($_.Name) - $([math]::Round($_.Length / 1KB, 1)) KB"
+          }
+          Write-Error "Build contains corrupted files (likely LFS pointers) - failing build"
+          exit 1
+        }
+        
+        if ($suspiciousCount -gt 0) {
+          Write-Error "❌ Found $suspiciousCount suspicious files that appear to be LFS pointers instead of actual content"
+          exit 1
+        }
+        
+        Write-Host "✅ VSTO publish verification completed successfully"
+
+    - name: Debug build output directories
       run: |
         Write-Host "=== Build Output Investigation ==="
         
@@ -165,9 +385,9 @@ jobs:
         $searchPaths = @(
           "ForensicWhisperDeskZH\bin\Release",
           "ForensicWhisperDeskZH\bin",
-          "ForensicWhisperDeskZH\publish",
           "bin\Release",
-          "publish"
+          "ForensicWhisperDeskZH\bin\x64\Release",
+          "ForensicWhisperDeskZH\publish"
         )
         
         foreach ($path in $searchPaths) {
@@ -182,14 +402,6 @@ jobs:
           } else {
             Write-Host "❌ Directory not found: $path"
           }
-        }
-        
-        # Look for common VSTO output files
-        Write-Host "=== Searching for VSTO files ==="
-        Get-ChildItem -Recurse -Include "*.dll", "*.manifest", "*.vsto", "*.deploy" | ForEach-Object {
-          $relativePath = $_.FullName.Substring((Get-Location).Path.Length + 1)
-          $size = "$([math]::Round($_.Length / 1KB, 1)) KB"
-          Write-Host "📄 $relativePath - $size"
         }
 
     - name: Sanitize Artifact Name
@@ -227,6 +439,15 @@ jobs:
         retention-days: 1  # Only keep for release job
       id: upload_artifact
 
+    # Upload PDF documentation as separate artifact
+    - name: Upload PDF Documentation
+      uses: actions/upload-artifact@v4
+      with:
+        name: User-Manual-PDF-${{ steps.sanitize_name.outputs.SANITIZED_NAME }}
+        path: Documentation\User_Manual_ForensicWhisperDeskZH.pdf
+        retention-days: 1
+      id: upload_pdf
+
   release:
     runs-on: windows-latest
     needs: build
@@ -243,6 +464,13 @@ jobs:
       with:
         name: ${{ needs.build.outputs.artifact-name }}
         path: ./release-artifacts
+
+    # Download PDF documentation
+    - name: Download PDF Documentation
+      uses: actions/download-artifact@v4
+      with:
+        name: User-Manual-PDF-${{ needs.build.outputs.sanitized-name }}
+        path: ./pdf-documentation
 
     - name: Create Release
       uses: actions/create-release@v1
@@ -268,6 +496,9 @@ jobs:
           1. **Download ALL parts** (VSTO-Addin-Package-v${{ needs.build.outputs.version }}.zip.001, .002, etc.)
           2. **Extract using 7-Zip** - right-click the .001 file and extract
           3. **Run `setup.exe`** from the extracted files **as Administrator**
+
+          ### Documentation
+          📖 **User Manual** - Download the complete user manual in PDF format for detailed installation and usage instructions.
 
           ### Key Points for Users:
           1. **Download ALL parts** - The split archive won't work unless all parts are present
@@ -295,12 +526,12 @@ jobs:
         # Use 7-Zip to create split archives (500MB parts)
         if (Get-Command "7z" -ErrorAction SilentlyContinue) {
           Write-Host "Using 7-Zip for split compression..."
-          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1000m
+          & 7z a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1800m
         } else {
           # Install 7-Zip via chocolatey for splitting capability
           Write-Host "Installing 7-Zip..."
           choco install 7zip -y
-          & "C:\Program Files\7-Zip\7z.exe" a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v500m
+          & "C:\Program Files\7-Zip\7z.exe" a -tzip "$zipBaseName.zip" ".\release-artifacts\*" -r -v1800m
         }
         
         # List created files for debugging
@@ -357,5 +588,42 @@ jobs:
               $responseBody = $reader.ReadToEnd()
               Write-Host "Response body: $responseBody"
             }
+          }
+        }
+
+    # Upload PDF documentation to release
+    - name: Upload PDF Documentation to Release
+      run: |
+        Write-Host "=== Uploading PDF Documentation to Release ==="
+        
+        $pdfFile = Get-ChildItem -Path ".\pdf-documentation" -Filter "*.pdf" | Select-Object -First 1
+        
+        if (-not $pdfFile) {
+          Write-Error "❌ PDF documentation file not found"
+          exit 1
+        }
+        
+        Write-Host "📄 Found PDF file: $($pdfFile.Name)"
+        Write-Host "📄 File size: $([math]::Round($pdfFile.Length / 1KB, 1)) KB"
+        
+        $headers = @{
+          'Authorization' = 'token ${{ secrets.GITHUB_TOKEN }}'
+          'Content-Type' = 'application/pdf'
+        }
+        
+        $uploadUrl = "${{ steps.create_release.outputs.upload_url }}".Replace('{?name,label}', "?name=$($pdfFile.Name)")
+        Write-Host "Upload URL: $uploadUrl"
+        
+        try {
+          $response = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -InFile $pdfFile.FullName
+          Write-Host "✅ Successfully uploaded PDF documentation: $($pdfFile.Name)"
+          Write-Host "📄 Download URL: $($response.browser_download_url)"
+        } catch {
+          Write-Error "❌ Failed to upload PDF documentation: $($_.Exception.Message)"
+          Write-Host "Exception details: $($_.Exception)"
+          if ($_.Exception.Response) {
+            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+            $responseBody = $reader.ReadToEnd()
+            Write-Host "Response body: $responseBody"
           }
         }

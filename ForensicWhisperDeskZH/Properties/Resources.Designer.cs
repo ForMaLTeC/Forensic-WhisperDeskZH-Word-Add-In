@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace FennecTranscriptionSystem.Properties {
+namespace ForensicWhisperDeskZH.Properties {
     using System;
     
     

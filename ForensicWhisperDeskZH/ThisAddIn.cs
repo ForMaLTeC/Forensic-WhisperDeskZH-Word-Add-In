@@ -1,5 +1,6 @@
-﻿using ForensicWhisperDeskZH.Common;
+﻿using ForensicWhisperDeskZH.Utils;
 using ForensicWhisperDeskZH.Document;
+using ForensicWhisperDeskZH.Transcription;
 using System;
 
 namespace ForensicWhisperDeskZH
@@ -18,8 +19,9 @@ namespace ForensicWhisperDeskZH
                 var documentService = new WordDocumentService(Application);
 
                 // Create the view model with appropriate dependencies
+                // Wait for the async creation to finish before continuing be using the task result
                 AddInViewModel = AddInViewModel.CreateAsync(
-                    new Transcription.WhisperTranscriptionServiceProvider(),
+                    new WhisperTranscriptionServiceProvider(),
                     documentService,
                     ConfigurationManager.LoadTranscriptionSettings(),
                     ConfigurationManager.LoadKeywordReplacements()).Result;
@@ -30,7 +32,7 @@ namespace ForensicWhisperDeskZH
                     LoggingService.LogError(message, null, "AddInViewModel");
                 };
 
-                LoggingService.LogMessage("Add-in started successfully", "ThisAddIn_Startup");
+                LoggingService.LogMessage("Add-in started successfully", "ThisAddIn_Startup", true);
             }
             catch (Exception ex)
             {
@@ -55,17 +57,6 @@ namespace ForensicWhisperDeskZH
             {
                 LoggingService.LogError("Error during add-in shutdown", ex, "ThisAddIn_Shutdown");
             }
-        }
-
-        // Legacy logging methods for backward compatibility
-        public void LogException(Exception ex, string location = "ThisAddIn")
-        {
-            LoggingService.LogError("Exception occurred", ex, location);
-        }
-
-        public void LogMessage(string message, string location = "ThisAddIn")
-        {
-            LoggingService.LogMessage(message, location);
         }
 
         #region VSTO generated code

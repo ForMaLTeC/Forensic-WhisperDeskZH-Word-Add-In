@@ -20,10 +20,6 @@ namespace ForensicWhisperDeskZH.Transcription
         /// </summary>
         event EventHandler<TranscriptionEventArgs> TranscriptionStopped;
 
-        /// <summary>
-        /// Occurs when a new piece of transcription text is available
-        /// </summary>
-        event EventHandler<TranscriptionResultEventArgs> TranscriptionResult;
 
         /// <summary>
         /// Occurs when an error happens during transcription
@@ -65,7 +61,7 @@ namespace ForensicWhisperDeskZH.Transcription
         /// <summary>
         /// Changes the Model Type used for transcription
         /// </summary>
-        void ChangeSilenceThreshold(int threshold);
+        void ChangeSilenceThreshold(TimeSpan threshold);
         void ChangeModelType(GgmlType modelType);
 
     }

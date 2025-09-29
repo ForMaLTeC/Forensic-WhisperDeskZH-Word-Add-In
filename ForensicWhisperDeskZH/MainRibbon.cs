@@ -1,5 +1,5 @@
 ﻿using ForensicWhisperDeskZH.Audio;
-using ForensicWhisperDeskZH.Common;
+using ForensicWhisperDeskZH.Utils;
 using Microsoft.Office.Tools.Ribbon;
 using System;
 using System.Collections.Generic;
@@ -13,14 +13,24 @@ namespace ForensicWhisperDeskZH
 {
     public partial class MainRibbon
     {
-        private readonly double _minSilenceThreshold = 0.1; // Minimum silence threshold in seconds
-        private readonly double _maxSilenceThreshold = 10.0; // Maximum silence threshold in seconds
+        private readonly double _minSilenceThreshold = 5; // Minimum silence threshold in seconds
+        private readonly double _maxSilenceThreshold = 1000; // Maximum silence threshold in seconds
 
         private readonly double _minChunkSizeInSeconds = 1.0; // Minimum chunk size in seconds
         private readonly double _maxChunkSizeInSeconds = 30.0; // Maximum chunk size in seconds
+
+        private static readonly int _statusLabelLength = 100;
+        private static readonly int _maxConcurrentLogMessages = 4;
         private AddInViewModel ViewModel => Globals.ThisAddIn.AddInViewModel;
         private static bool _isTranscribing = false;
         private bool _isInitialized = false;
+        private bool _isListeningMode = false;
+
+        private string _currentLogMessage = "Ready";
+        private List<string> _lastLogMessages = new List<string>();
+        private readonly Queue<string> _logMessageQueue = new Queue<string>();
+        private readonly object _logLock = new object();
+        private System.Timers.Timer _logDisplayTimer;
 
         private void TestRibbon_Load(object sender, RibbonUIEventArgs e)
         {
@@ -41,25 +51,24 @@ namespace ForensicWhisperDeskZH
             {
                 await Task.Delay(100); // Wait 100ms between checks
                 attempts++;
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Waiting for ViewModel... Attempt {attempts}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Waiting for ViewModel... Attempt {attempts}");
             }
 
             if (ViewModel == null)
             {
-                System.Diagnostics.Debug.WriteLine("FennecRibbon: ERROR - ViewModel not available after timeout!");
+                System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: ERROR - ViewModel not available after timeout!");
                 return;
             }
+
+            ViewModel.OnDictationStateChanged += (s, isTranscribing) =>
+            {
+                //_isTranscribing = isTranscribing;
+                ToggleDictationButton();
+            };
 
             // Initialize on the main thread
             await Task.Run(() =>
             {
-                // Use Invoke to run on the main thread
-
-                // With this line:
-                // Replace this line:
-                // Globals.Ribbons.MainRibbon.RibbonUI?.Invalidate();
-
-                // With this line:
                 Globals.Ribbons.MainRibbon.RibbonUI?.Invalidate();
 
                 InitializeRibbonControls();
@@ -72,17 +81,83 @@ namespace ForensicWhisperDeskZH
 
             try
             {
-                System.Diagnostics.Debug.WriteLine("FennecRibbon: Starting ribbon initialization...");
-
-                // Add diagnostic logging
-                AudioDiagnosticTool.ListAudioDevices();
+                System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: Starting ribbon initialization...");
 
                 InitalizeUserInterface();
+
+                // Initialize log display
+                InitializeLogDisplay();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Error initializing ribbon controls: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Error initializing ribbon controls: {ex.Message}");
             }
+        }
+
+        private void InitializeLogDisplay()
+        {
+            // Subscribe to logging service events (you'll need to modify LoggingService for this)
+            LoggingService.OnLogMessage += UpdateLogDisplay;
+
+            // Initialize timer for cycling through log messages
+            _logDisplayTimer = new System.Timers.Timer(200); // Show each message for 3 seconds
+            _logDisplayTimer.Elapsed += LogDisplayTimer_Elapsed;
+            _logDisplayTimer.Start();
+
+            // Set initial status
+            UpdateLogLabel("System Ready");
+        }
+
+        private void UpdateLogDisplay(string message)
+        {
+            lock (_logLock)
+            {
+                _logMessageQueue.Enqueue($"{DateTime.Now:HH:mm:ss} - {message}");
+                if (_logMessageQueue.Count > 10) // Keep only last 10 messages
+                {
+                    _logMessageQueue.Dequeue();
+                }
+            }
+        }
+
+        private void LogDisplayTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            lock (_logLock)
+            {
+                if (_logMessageQueue.Count > 0)
+                {
+                    _currentLogMessage = _logMessageQueue.Dequeue();
+
+                    UpdateLogLabel(_currentLogMessage);
+                }
+            }
+        }
+
+        private void UpdateLogLabel(string message)
+        {
+            // Assuming you have a RibbonLabel called "StatusLabel" in your ribbon designer
+            if (StatusLabel != null)
+            {
+                _currentLogMessage = TruncateMessage(message, _statusLabelLength);
+                _currentLogMessage += "\n";
+                _lastLogMessages.Add(_currentLogMessage);
+                if (_lastLogMessages.Count > _maxConcurrentLogMessages)
+                {
+                    // pop/remove oldest message
+                    _lastLogMessages.Remove(_lastLogMessages.First<string>());
+                }
+                string completeStatusLog = "";
+                foreach (string logMessage in _lastLogMessages)
+                {
+                    completeStatusLog += logMessage;
+                }
+                StatusLabel.Label = completeStatusLog; // Limit length for ribbon space
+            }
+        }
+
+        private string TruncateMessage(string message, int maxLength)
+        {
+            return message.Length <= maxLength ? message : message.Substring(0, maxLength - 3) + "...";
         }
 
         private void InitalizeUserInterface()
@@ -97,18 +172,18 @@ namespace ForensicWhisperDeskZH
             LoadLanguages();
 
             // Set UI values from the settings
-            MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.ChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
-            SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+            MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.minChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+            SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
 
             _isInitialized = true;
-            System.Diagnostics.Debug.WriteLine("FennecRibbon: Initialization completed successfully!");
+            System.Diagnostics.Debug.WriteLine("ForensicWhisperDeskZH_Ribbon: Initialization completed successfully!");
         }
 
         private void UpdateSettingsView()
         {
             // Set UI values from the settings
-            MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.ChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
-            SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+            MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.minChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+            SilenceThreshold.Text = ViewModel._transcriptionSettings.SilenceThreshold.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
         }
 
         private void LoadMicrophones(bool isRefresh = false)
@@ -128,7 +203,7 @@ namespace ForensicWhisperDeskZH
                     dropDownItem.Label = mic.Name;
                     dropDownItem.Tag = mic.DeviceNumber;
                     MicrophoneCheckBox.Items.Add(dropDownItem);
-                    LoggingService.LogMessage($"FennecRibbon: Found microphone: {mic.Name} (Device Number: {mic.DeviceNumber})");
+                    LoggingService.LogMessage($"ForensicWhisperDeskZH_Ribbon: Found microphone: {mic.Name} (Device Number: {mic.DeviceNumber})");
                 }
 
                 // Set the default selected item to the first microphone in the list
@@ -139,7 +214,7 @@ namespace ForensicWhisperDeskZH
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Error loading microphones: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Error loading microphones: {ex.Message}");
             }
         }
 
@@ -167,7 +242,7 @@ namespace ForensicWhisperDeskZH
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Error loading model types: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Error loading model types: {ex.Message}");
             }
         }
 
@@ -195,7 +270,7 @@ namespace ForensicWhisperDeskZH
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"FennecRibbon: Error loading languages: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ForensicWhisperDeskZH_Ribbon: Error loading languages: {ex.Message}");
             }
         }
 
@@ -214,7 +289,7 @@ namespace ForensicWhisperDeskZH
                 MessageBox.Show("Failed to toggle transcription. Check the logs for more details.",
                     "Transcription Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            ToggleInteractability();
+            ToggleSettingsInteractability();
             ToggleDictationButton();
         }
 
@@ -230,7 +305,7 @@ namespace ForensicWhisperDeskZH
                 {
                     MessageBox.Show($"Chunk Size must be longer than {_minChunkSizeInSeconds} seconds",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    ViewModel._transcriptionSettings.ChunkDuration = TimeSpan.FromSeconds(_minChunkSizeInSeconds);
+                    ViewModel._transcriptionSettings.minChunkDuration = TimeSpan.FromSeconds(_minChunkSizeInSeconds);
                     MinChunkSizeInSeconds.Text = _minChunkSizeInSeconds.ToString(CultureInfo.InvariantCulture);
                     return;
                 }
@@ -238,16 +313,16 @@ namespace ForensicWhisperDeskZH
                 {
                     MessageBox.Show($"Chunk Size must be shorter than {_maxChunkSizeInSeconds} seconds.",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    ViewModel._transcriptionSettings.ChunkDuration = TimeSpan.FromSeconds(_maxChunkSizeInSeconds);
+                    ViewModel._transcriptionSettings.minChunkDuration = TimeSpan.FromSeconds(_maxChunkSizeInSeconds);
                     MinChunkSizeInSeconds.Text = _maxChunkSizeInSeconds.ToString(CultureInfo.InvariantCulture);
                     return;
                 }
-                ViewModel._transcriptionSettings.ChunkDuration = TimeSpan.FromSeconds(seconds);
+                ViewModel._transcriptionSettings.minChunkDuration = TimeSpan.FromSeconds(seconds);
             }
             catch
             {
                 // Reset to current value on parse error
-                MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.ChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
+                MinChunkSizeInSeconds.Text = ViewModel._transcriptionSettings.minChunkDuration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
                 MessageBox.Show("Please enter a valid number for Chunk Size in Seconds.",
                     "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
@@ -262,18 +337,18 @@ namespace ForensicWhisperDeskZH
                 // Validate the threshold value
                 if (threshold < _minSilenceThreshold)
                 {
-                    MessageBox.Show($"Silence Threshold must be longer than {_minSilenceThreshold} seconds",
+                    MessageBox.Show($"Silence Threshold must be longer than {_minSilenceThreshold} milliseconds",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
                     threshold = _minSilenceThreshold;
                 }
                 if (threshold > _maxSilenceThreshold)
                 {
-                    MessageBox.Show($"Silence Threshold must be shorter than {_maxSilenceThreshold} seconds.",
+                    MessageBox.Show($"Silence Threshold must be shorter than {_maxSilenceThreshold} milliseconds.",
                         "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
                     threshold = _maxSilenceThreshold;
                 }
                 SilenceThreshold.Text = threshold.ToString(CultureInfo.InvariantCulture);
-                ViewModel.ChangeSilenceThreshold((int)threshold);
+                ViewModel.ChangeSilenceThreshold(threshold);
             }
             catch
             {
@@ -303,7 +378,8 @@ namespace ForensicWhisperDeskZH
             var selectedModel = ModelSelection.Items.FirstOrDefault(item => item.Label == ModelSelection.Text);
             if (selectedModel?.Tag is GgmlType modelType)
             {
-                ViewModel._transcriptionSettings.ModelType = modelType;
+                //ViewModel._transcriptionSettings.ModelType = modelType;
+                ViewModel.SetModelType(modelType);
             }
             else
             {
@@ -322,7 +398,7 @@ namespace ForensicWhisperDeskZH
             }
         }
 
-        private void ToggleInteractability()
+        private void ToggleSettingsInteractability()
         {
             // Toggle the transcription state
             _isTranscribing = !_isTranscribing;
@@ -335,19 +411,23 @@ namespace ForensicWhisperDeskZH
             SilenceThreshold.Enabled = !_isTranscribing;
         }
 
-        private void ToggleDictationButton()
+        private bool ToggleDictationButton()
         {
             // Enable or disable controls based on transcription state
             StartTranscriptionButton.Label = _isTranscribing ? "Diktat Beenden" : "Diktat Starten";
-            StartTranscriptionButton.Enabled = true;
+            StartTranscriptionButton.OfficeImageId = _isTranscribing ? "SpeechMicrophone" : "AudioRecordingInsert";
+            if(!_isListeningMode)
+                ListenModeButton.Enabled = !_isTranscribing;
+            return _isTranscribing;
         }
 
         // Fix typo: change 'privtae' to 'private'
-        private void ToggleListeningModeButton()
+        private void ToggleViewF_ListeningModeButtonClick()
         {
+            StartTranscriptionButton.Label = _isTranscribing ? "Diktat Beenden" : "Diktat Starten"; ;
             ListenModeButton.Label = _isTranscribing ? "Hörmodus Beenden" : "Hörmodus Starten";
-            ListenModeButton.Enabled = true;
-
+            ListenModeButton.OfficeImageId = _isTranscribing ? "MacroRecorderStop" : "MacroPlay";
+            StartTranscriptionButton.Enabled = !_isTranscribing;
         }
 
         private void ResetButton_Click(object sender, RibbonControlEventArgs e)
@@ -360,10 +440,10 @@ namespace ForensicWhisperDeskZH
 
         private void ListenModeButton_Click(object sender, RibbonControlEventArgs e)
         {
-            ViewModel.StartListeningMode();
+            _isListeningMode = ViewModel.ToggleListeningMode();
 
-            ToggleInteractability();
-            ToggleListeningModeButton();
+            ToggleSettingsInteractability();
+            ToggleViewF_ListeningModeButtonClick();
         }
     }
 }

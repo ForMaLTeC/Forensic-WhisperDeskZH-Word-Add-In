@@ -1,11 +1,12 @@
 using System;
 using System.IO;
 using System.Media;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ForensicWhisperDeskZH.Common
+namespace ForensicWhisperDeskZH.Utils
 {
     /// <summary>
     /// Provides centralized logging functionality
@@ -14,13 +15,16 @@ namespace ForensicWhisperDeskZH.Common
     {
         private static readonly string LogDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FennecTranscriptionSystem",
+            GetApplicationName(), // application name
             "Logs");
 
         private static readonly string LogPath = Path.Combine(LogDirectory, $"log_{DateTime.Now:yyyyMMdd}.txt");
         private static readonly string ErrorPath = Path.Combine(LogDirectory, $"errors_{DateTime.Now:yyyyMMdd}.txt");
-
         private static readonly SemaphoreSlim LogLock = new SemaphoreSlim(1, 1);
+
+        public static event Action<string> OnLogMessage;
+
+
 
         static LoggingService()
         {
@@ -85,7 +89,10 @@ namespace ForensicWhisperDeskZH.Common
                 AppendExceptionDetails(sb, ex.InnerException, level + 1);
             }
         }
-
+        static string GetApplicationName()
+        {
+            return Assembly.GetExecutingAssembly()?.GetName().Name ?? "ForensicWhisperDeskZH";
+        }
         private static async Task LogToFileAsync(string path, string content)
         {
             try
@@ -110,8 +117,13 @@ namespace ForensicWhisperDeskZH.Common
         }
 
         // Synchronous versions for compatibility with existing code
-        public static void LogMessage(string message, string source = "Application")
+        public static void LogMessage(string message, string source = "Application", bool displayToUser = false)
         {
+            if (displayToUser)
+            {
+                // Notify ribbon
+                OnLogMessage?.Invoke(message);
+            }
             Task.Run(() => LogMessageAsync(message, source)).Wait();
         }
 
@@ -135,23 +147,7 @@ namespace ForensicWhisperDeskZH.Common
                 // Play system warning sound (async to avoid blocking)
                 Task.Run(() =>
                 {
-                    try
-                    {
-                        SystemSounds.Asterisk.Play();
-                    }
-                    catch (Exception ex)
-                    {
-                        // If SystemSounds fails, try Console.Beep as fallback
-                        try
-                        {
-                            Console.Beep(800, 200); // 800Hz for 200ms
-                        }
-                        catch
-                        {
-                            // Log but don't throw - sound is not critical for functionality
-                            LoggingService.LogMessage($"TranscriptionService: Failed to play start sound: {ex.Message}", "TranscriptionService_PlayTranscriptionStartSound");
-                        }
-                    }
+                    SystemSounds.Asterisk.Play();
                 });
             }
             catch (Exception ex)
@@ -164,31 +160,25 @@ namespace ForensicWhisperDeskZH.Common
         /// <summary>
         /// Plays a system warning sound to indicate transcription start
         /// </summary>
-        public static void PlayDictationModeChangeSound()
+        public static void PlayDictationModeChangeSound(bool isStarting = false)
         {
             try
             {
-                // Play system warning sound (async to avoid blocking)
-                Task.Run(() =>
+                if (isStarting)
                 {
-                    try
+                    Task.Run(() =>
+                    {
+                        SystemSounds.Asterisk.Play();
+                    });
+
+                }
+                else
+                {
+                    Task.Run(() =>
                     {
                         SystemSounds.Exclamation.Play();
-                    }
-                    catch (Exception ex)
-                    {
-                        // If SystemSounds fails, try Console.Beep as fallback
-                        try
-                        {
-                            Console.Beep(800, 200); // 800Hz for 200ms
-                        }
-                        catch
-                        {
-                            // Log but don't throw - sound is not critical for functionality
-                            LoggingService.LogMessage($"TranscriptionService: Failed to play start sound: {ex.Message}", "TranscriptionService_PlayTranscriptionStartSound");
-                        }
-                    }
-                });
+                    });
+                }
             }
             catch (Exception ex)
             {

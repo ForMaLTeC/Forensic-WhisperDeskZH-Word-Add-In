@@ -46,10 +46,13 @@
             this.SilenceThreshold = this.Factory.CreateRibbonEditBox();
             this.MinChunkSizeInSeconds = this.Factory.CreateRibbonEditBox();
             this.ResetButton = this.Factory.CreateRibbonButton();
+            this.group3 = this.Factory.CreateRibbonGroup();
+            this.StatusLabel = this.Factory.CreateRibbonLabel();
             this.tab1.SuspendLayout();
             this.group2.SuspendLayout();
             this.group1.SuspendLayout();
             this.AdvancedSettings.SuspendLayout();
+            this.group3.SuspendLayout();
             this.SuspendLayout();
             // 
             // tab1
@@ -58,6 +61,7 @@
             this.tab1.Groups.Add(this.group2);
             this.tab1.Groups.Add(this.group1);
             this.tab1.Groups.Add(this.AdvancedSettings);
+            this.tab1.Groups.Add(this.group3);
             this.tab1.Label = "TabAddIns";
             this.tab1.Name = "tab1";
             // 
@@ -73,7 +77,7 @@
             this.ListenModeButton.ControlSize = Microsoft.Office.Core.RibbonControlSize.RibbonControlSizeLarge;
             this.ListenModeButton.Label = "Zuhören Starten";
             this.ListenModeButton.Name = "ListenModeButton";
-            this.ListenModeButton.OfficeImageId = "SpeechMicrophone";
+            this.ListenModeButton.OfficeImageId = "MacroPlay";
             this.ListenModeButton.ShowImage = true;
             this.ListenModeButton.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.ListenModeButton_Click);
             // 
@@ -125,14 +129,14 @@
             // 
             // SilenceThreshold
             // 
-            this.SilenceThreshold.Label = "Dauer der Stille zwischen Wörtern";
+            this.SilenceThreshold.Label = "Dauer der Stille zwischen Wörtern (Millisekunden)";
             this.SilenceThreshold.Name = "SilenceThreshold";
             this.SilenceThreshold.Text = null;
             this.SilenceThreshold.TextChanged += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.SilenceThreshold_TextChanged);
             // 
             // MinChunkSizeInSeconds
             // 
-            this.MinChunkSizeInSeconds.Label = "Minimale Dauer von Audioblöcken";
+            this.MinChunkSizeInSeconds.Label = "Minimale Dauer von Audioblöcken (Sekunden)";
             this.MinChunkSizeInSeconds.Name = "MinChunkSizeInSeconds";
             this.MinChunkSizeInSeconds.Text = null;
             this.MinChunkSizeInSeconds.TextChanged += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.MaxChunkSizeInSeconds_TextChanged);
@@ -144,6 +148,17 @@
             this.ResetButton.OfficeImageId = "RecordsRefreshRecords";
             this.ResetButton.ShowImage = true;
             this.ResetButton.Click += new Microsoft.Office.Tools.Ribbon.RibbonControlEventHandler(this.ResetButton_Click);
+            // 
+            // group3
+            // 
+            this.group3.Items.Add(this.StatusLabel);
+            this.group3.Label = "group3";
+            this.group3.Name = "group3";
+            // 
+            // StatusLabel
+            // 
+            this.StatusLabel.Label = "log message";
+            this.StatusLabel.Name = "StatusLabel";
             // 
             // MainRibbon
             // 
@@ -159,6 +174,8 @@
             this.group1.PerformLayout();
             this.AdvancedSettings.ResumeLayout(false);
             this.AdvancedSettings.PerformLayout();
+            this.group3.ResumeLayout(false);
+            this.group3.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -177,6 +194,8 @@
         internal Microsoft.Office.Tools.Ribbon.RibbonEditBox SilenceThreshold;
         internal Microsoft.Office.Tools.Ribbon.RibbonButton ResetButton;
         internal Microsoft.Office.Tools.Ribbon.RibbonButton ListenModeButton;
+        internal Microsoft.Office.Tools.Ribbon.RibbonGroup group3;
+        internal Microsoft.Office.Tools.Ribbon.RibbonLabel StatusLabel;
     }
 
     partial class ThisRibbonCollection

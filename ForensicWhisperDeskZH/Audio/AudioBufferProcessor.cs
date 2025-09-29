@@ -1,4 +1,3 @@
-using ForensicWhisperDeskZH.Common;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -7,15 +6,17 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using WebRtcVadSharp;
+using ForensicWhisperDeskZH.Utils;
 
 namespace ForensicWhisperDeskZH.Audio
 {
     /// <summary>
-    /// Processes audio buffers, handling overlapping chunks
+    /// Processes audio buffers, handling overlapping chunks with improved responsiveness
     /// </summary>
     public class AudioBufferProcessor : IDisposable
     {
-        private readonly TimeSpan _chunkDuration;
+        #region Fields
+        private readonly TimeSpan _minChunkDuration;
         private readonly int _bytesPerMillisecond;
         private MemoryStream _activeBuffer;
         private MemoryStream _processingBuffer;
@@ -29,28 +30,34 @@ namespace ForensicWhisperDeskZH.Audio
         private WebRtcVad _vad;
         private bool _vadInitialized = false;
         private readonly object _vadLock = new object();
-        private readonly int _silenceThresholdMs = 300; // 300ms of silence indicates word boundary
+        private readonly int _silenceThresholdMs;
         private const int FRAME_SIZE_SAMPLES = 320; // 20ms at 16kHz
         private const int FRAME_SIZE_BYTES = FRAME_SIZE_SAMPLES * 2;
+        private const int MAX_CHUNK_DURATION_MS = 30000; // 30 seconds maximum
+        private const int MIN_PROCESSING_DURATION_MS = 1000; // 1 second minimum for processing
+        private const int OVERLAP_DURATION_MS = 500; // 500ms overlap for word boundary detection
+        #endregion
 
+        #region Events
         /// <summary>
         /// Occurs when a processed audio chunk is available
         /// </summary>
         public event EventHandler<ProcessedAudioEventArgs> ChunkReady;
+        #endregion
 
         /// <summary>
         /// Creates a new audio buffer processor
         /// </summary>
         /// <param name="bytesPerMillisecond">Bytes per millisecond based on audio format</param>
-        /// <param name="chunkDuration">Duration of each processed chunk</param>
-        /// <param name="silenceThreshold">Duration of overlap between chunks</param>
+        /// <param name="minChunkDuration">Duration of each processed chunk (minimum duration)</param>
+        /// <param name="silenceThreshold">Duration of silence required for word boundary detection</param>
         public AudioBufferProcessor(
             int bytesPerMillisecond,
-            TimeSpan chunkDuration,
+            TimeSpan minChunkDuration,
             TimeSpan silenceThreshold)
         {
             _bytesPerMillisecond = bytesPerMillisecond;
-            _chunkDuration = chunkDuration;
+            _minChunkDuration = minChunkDuration;
             _silenceThresholdMs = (int)silenceThreshold.TotalMilliseconds;
 
             // Initialize both buffers from the pool
@@ -63,9 +70,8 @@ namespace ForensicWhisperDeskZH.Audio
             // Start the consumer task
             Task.Run(ConsumeChunksAsync);
 
-            System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Initialized with chunk duration: {chunkDuration.TotalMilliseconds}ms, overlap: {silenceThreshold.TotalMilliseconds}ms, bytes/ms: {bytesPerMillisecond}");
-            LoggingService.LogMessage($"AudioBufferProcessor: Initialized with chunk duration: {chunkDuration.TotalMilliseconds}ms, overlap: {silenceThreshold.TotalMilliseconds}ms, bytes/ms: {bytesPerMillisecond}", "AudioBufferProcessor_init");
-            // DON'T initialize VAD here - do it lazily when first needed
+            System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Initialized with min chunk duration: {minChunkDuration.TotalMilliseconds}ms, silence threshold: {silenceThreshold.TotalMilliseconds}ms, bytes/ms: {bytesPerMillisecond}");
+            LoggingService.LogMessage($"AudioBufferProcessor: Initialized with min chunk duration: {minChunkDuration.TotalMilliseconds}ms, silence threshold: {silenceThreshold.TotalMilliseconds}ms, bytes/ms: {bytesPerMillisecond}", "AudioBufferProcessor_init");
         }
 
         /// <summary>
@@ -74,9 +80,10 @@ namespace ForensicWhisperDeskZH.Audio
         public void Start()
         {
             _cts = new CancellationTokenSource();
-            int interval = (int)_chunkDuration.TotalMilliseconds;
+            // Use a more frequent timer for better responsiveness
+            int interval = Math.Max(1000, (int)_minChunkDuration.TotalMilliseconds / 2);
             _chunkTimer.Change(interval, interval);
-            System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Started with {interval}ms interval");
+            System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Started with {interval}ms timer interval");
         }
 
         /// <summary>
@@ -101,44 +108,102 @@ namespace ForensicWhisperDeskZH.Audio
             if (audioData.Length == 0)
                 return;
 
+            if (_isDisposed)
+                return; // Silently ignore if disposed
+
             lock (_bufferLock)
             {
-                // Convert ReadOnlySpan<byte> to byte array and write to active buffer
-                byte[] audioDataArray = audioData.ToArray();
-                _activeBuffer.Write(audioDataArray, 0, audioDataArray.Length);
+                if (_isDisposed) // Check again inside lock
+                    return;
 
-                System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Added {audioData.Length} bytes, total buffer size: {_activeBuffer.Length}");
+                try
+                {
+                    // Convert ReadOnlySpan<byte> to byte array and write to active buffer
+                    byte[] audioDataArray = audioData.ToArray();
+                    _activeBuffer.Write(audioDataArray, 0, audioDataArray.Length);
+
+                    System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Added {audioData.Length} bytes, total buffer size: {_activeBuffer.Length}");
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Buffer was disposed between checks - ignore silently
+                    System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Buffer disposed while adding audio data");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Error adding audio data: {ex.Message}");
+                }
             }
         }
 
+        /// <summary>
+        /// Improved ProcessChunk method that respects minimum duration and silence threshold
+        /// </summary>
         private void ProcessChunk(object state)
         {
-            MemoryStream chunk = _streamPool.GetStream();
+            if (_isDisposed)
+                return;
 
             MemoryStream bufferToProcess;
             lock (_bufferLock)
             {
-                if (_activeBuffer.Length < FRAME_SIZE_BYTES * 10) // At least 200ms of audio
+                if (_isDisposed)
+                    return;
+
+                // Only process if we have at least the minimum chunk duration worth of audio
+                int minChunkBytes = (int)(_minChunkDuration.TotalMilliseconds * _bytesPerMillisecond);
+                
+                if (_activeBuffer.Length < minChunkBytes)
                 {
-                    _streamPool.ReturnStream(chunk);
+                    System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Buffer too small ({_activeBuffer.Length} bytes < {minChunkBytes} bytes), waiting for more audio");
                     return;
                 }
 
-                // Swap active and processing buffers
-                bufferToProcess = _activeBuffer;
-                _activeBuffer = _processingBuffer;
-                _processingBuffer = bufferToProcess;
+                // Check if we have reached maximum duration - force processing if so
+                int maxProcessingBytes = _bytesPerMillisecond * MAX_CHUNK_DURATION_MS;
+                bool forceProcessing = _activeBuffer.Length >= maxProcessingBytes;
 
-                System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Processing chunk with {bufferToProcess.Length} bytes");
+                if (!forceProcessing)
+                {
+                    // For normal processing, only process what we have up to max duration
+                    System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Normal processing - have {_activeBuffer.Length} bytes, min required: {minChunkBytes} bytes");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Force processing - buffer reached max size ({_activeBuffer.Length} bytes >= {maxProcessingBytes} bytes)");
+                }
+
+                // Process all available audio (up to max duration)
+                int bytesToProcess = Math.Min((int)_activeBuffer.Length, maxProcessingBytes);
+                
+                // Create buffer with the audio to process
+                bufferToProcess = _streamPool.GetStream();
+                _activeBuffer.Position = 0;
+                
+                byte[] tempBuffer = new byte[bytesToProcess];
+                _activeBuffer.Read(tempBuffer, 0, bytesToProcess);
+                bufferToProcess.Write(tempBuffer, 0, bytesToProcess);
+                
+                // Clear the active buffer since we're processing all of it
+                _activeBuffer.SetLength(0);
+                _activeBuffer.Position = 0;
+
+                System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Processing {bytesToProcess} bytes ({(double)bytesToProcess / _bytesPerMillisecond:F0}ms of audio)");
             }
 
             try
             {
-                // Process buffer for word boundaries using VAD
+                if (_isDisposed)
+                    return;
+
+                // Process buffer for word boundaries using VAD - this will respect minimum duration + silence threshold
                 var wordBoundaryChunks = DetectWordBoundaries(bufferToProcess);
 
                 foreach (var wordChunk in wordBoundaryChunks)
                 {
+                    if (_isDisposed)
+                        break;
+
                     if (wordChunk.Length > 0)
                     {
                         var chunkStream = new MemoryStream(wordChunk);
@@ -147,6 +212,10 @@ namespace ForensicWhisperDeskZH.Audio
                     }
                 }
             }
+            catch (ObjectDisposedException)
+            {
+                System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Object disposed during chunk processing");
+            }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Error processing chunk: {ex.Message}");
@@ -154,9 +223,16 @@ namespace ForensicWhisperDeskZH.Audio
             }
             finally
             {
-                bufferToProcess.SetLength(0);
-                bufferToProcess.Position = 0;
-                _streamPool.ReturnStream(chunk);
+                try
+                {
+                    bufferToProcess.SetLength(0);
+                    bufferToProcess.Position = 0;
+                    _streamPool.ReturnStream(bufferToProcess);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Error returning stream to pool: {ex.Message}");
+                }
             }
         }
 
@@ -169,7 +245,7 @@ namespace ForensicWhisperDeskZH.Audio
                 if (_vadInitialized) return true;
 
                 try
-                {
+                {                    
                     _vad = new WebRtcVad();
                     _vad.OperatingMode = OperatingMode.Aggressive;
                     _vadInitialized = true;
@@ -179,188 +255,228 @@ namespace ForensicWhisperDeskZH.Audio
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Failed to initialize VAD: {ex.Message}");
-                    LoggingService.LogError($"AudioBufferProcessor: Failed to initialize VAD: {ex.Message}", ex, "AudioBufferProcessor_EnsureVadInitialized");
+                    LoggingService.LogError($"AudioBufferProcessor: Failed to initialize VAD: {ex.Message} \n" + 
+                                    $"DLL Load Path: {System.Reflection.Assembly.GetExecutingAssembly().Location}\n" + 
+                                    $"Inner Exception: {ex.InnerException}\n StackTrace {ex.StackTrace}", 
+                                    ex, "AudioBufferProcessor_EnsureVadInitialized");
+
                     _vadInitialized = false;
                     return false;
                 }
             }
         }
 
-        private List<byte[]> DetectWordBoundaries(MemoryStream audioBuffer)
+        /// <summary>
+        /// Energy-based silence detection as fallback when VAD is not available
+        /// </summary>
+        private bool DetectSilenceWithoutVad(byte[] frameBuffer)
         {
-            // Try to initialize VAD if not already done
-            if (!EnsureVadInitialized())
-            {
-                // Fall back to energy-based detection if VAD fails
-                return DetectWordBoundariesByEnergy(audioBuffer);
-            }
-
-            var chunks = new List<byte[]>();
-            var currentChunk = new List<byte>();
-
-            audioBuffer.Position = 0;
-            byte[] frameBuffer = new byte[FRAME_SIZE_BYTES];
-            int consecutiveSilenceFrames = 0;
-
-            // Calculate minimum chunk size in bytes based on _chunkDuration
-            int minChunkSizeBytes = (int)(_chunkDuration.TotalMilliseconds * _bytesPerMillisecond);
-
-            System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Minimum chunk size: {minChunkSizeBytes} bytes ({_chunkDuration.TotalMilliseconds}ms)");
-
-            while (audioBuffer.Position < audioBuffer.Length - FRAME_SIZE_BYTES)
-            {
-                int bytesRead = audioBuffer.Read(frameBuffer, 0, FRAME_SIZE_BYTES);
-
-                if (bytesRead == FRAME_SIZE_BYTES)
-                {
-                    // Convert to samples for VAD
-                    short[] samples = new short[FRAME_SIZE_SAMPLES];
-                    for (int i = 0; i < FRAME_SIZE_SAMPLES; i++)
-                    {
-                        samples[i] = BitConverter.ToInt16(frameBuffer, i * 2);
-                    }
-
-                    bool hasVoice;
-                    try
-                    {
-                        hasVoice = _vad.HasSpeech(samples);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: VAD error: {ex.Message}");
-                        LoggingService.LogError($"AudioBufferProcessor: VAD error: {ex.Message}", ex, "AudioBufferProcessor_DetectWordBoundaries");
-                        // Fall back to energy-based detection for this frame
-                        hasVoice = CalculateRMSEnergy(frameBuffer) > 500.0;
-                    }
-
-                    // Always add frame to current chunk first
-                    currentChunk.AddRange(frameBuffer);
-
-                    if (hasVoice)
-                    {
-                        consecutiveSilenceFrames = 0;
-                    }
-                    else
-                    {
-                        consecutiveSilenceFrames++;
-
-                        // Only consider cutting the chunk if we've reached minimum duration AND have sustained silence
-                        bool hasMinimumDuration = currentChunk.Count >= minChunkSizeBytes;
-                        bool hasSufficientSilence = consecutiveSilenceFrames >= (_silenceThresholdMs / 20); // 20ms per frame
-
-                        if (hasMinimumDuration && hasSufficientSilence)
-                        {
-                            // End current chunk if it has content
-                            if (currentChunk.Count > 0)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Creating chunk with {currentChunk.Count} bytes (duration: {(double)currentChunk.Count / _bytesPerMillisecond:F0}ms) after {consecutiveSilenceFrames * 20}ms silence");
-                                chunks.Add(currentChunk.ToArray());
-                                currentChunk.Clear();
-                            }
-                            consecutiveSilenceFrames = 0;
-                        }
-                        // If we haven't reached minimum duration yet, continue adding frames regardless of silence
-                    }
-                }
-            }
-
-            // Add remaining audio as final chunk only if it meets minimum size or is the only chunk
-            if (currentChunk.Count > 0)
-            {
-                if (currentChunk.Count >= minChunkSizeBytes || chunks.Count == 0)
-                {
-                    System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Creating final chunk with {currentChunk.Count} bytes (duration: {(double)currentChunk.Count / _bytesPerMillisecond:F0}ms)");
-                    chunks.Add(currentChunk.ToArray());
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Discarding final chunk - too short: {currentChunk.Count} bytes (duration: {(double)currentChunk.Count / _bytesPerMillisecond:F0}ms)");
-
-                    // If we have previous chunks, merge this small chunk with the last one
-                    if (chunks.Count > 0)
-                    {
-                        var lastChunk = chunks[chunks.Count - 1].ToList();
-                        lastChunk.AddRange(currentChunk);
-                        chunks[chunks.Count - 1] = lastChunk.ToArray();
-                        System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Merged small chunk with previous, new size: {chunks[chunks.Count - 1].Length} bytes");
-                    }
-                    else
-                    {
-                        // If it's the only chunk, keep it anyway
-                        chunks.Add(currentChunk.ToArray());
-                        System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Keeping small chunk as it's the only one");
-                    }
-                }
-            }
-
-            return chunks;
-        }
-
-        private List<byte[]> DetectWordBoundariesByEnergy(MemoryStream audioBuffer)
-        {
-            var chunks = new List<byte[]>();
-            var currentChunk = new List<byte>();
-
-            audioBuffer.Position = 0;
-            byte[] frameBuffer = new byte[FRAME_SIZE_BYTES];
-            int consecutiveLowEnergyFrames = 0;
-            const double energyThreshold = 500.0;
-            const int silenceFrameThreshold = 15; // ~300ms of silence
-
-            while (audioBuffer.Position < audioBuffer.Length - FRAME_SIZE_BYTES)
-            {
-                int bytesRead = audioBuffer.Read(frameBuffer, 0, FRAME_SIZE_BYTES);
-
-                if (bytesRead == FRAME_SIZE_BYTES)
-                {
-                    double energy = CalculateRMSEnergy(frameBuffer);
-
-                    if (energy > energyThreshold)
-                    {
-                        currentChunk.AddRange(frameBuffer);
-                        consecutiveLowEnergyFrames = 0;
-                    }
-                    else
-                    {
-                        consecutiveLowEnergyFrames++;
-
-                        if (consecutiveLowEnergyFrames >= silenceFrameThreshold)
-                        {
-                            if (currentChunk.Count > 0)
-                            {
-                                chunks.Add(currentChunk.ToArray());
-                                currentChunk.Clear();
-                            }
-                            consecutiveLowEnergyFrames = 0;
-                        }
-                        else
-                        {
-                            currentChunk.AddRange(frameBuffer);
-                        }
-                    }
-                }
-            }
-
-            if (currentChunk.Count > 0)
-            {
-                chunks.Add(currentChunk.ToArray());
-            }
-
-            return chunks;
-        }
-
-        private double CalculateRMSEnergy(byte[] frameBuffer)
-        {
+            if (frameBuffer.Length < 2) return true;
+            
             long sumSquares = 0;
             int sampleCount = frameBuffer.Length / 2;
-
+            
             for (int i = 0; i < frameBuffer.Length - 1; i += 2)
             {
                 short sample = BitConverter.ToInt16(frameBuffer, i);
                 sumSquares += (long)sample * sample;
             }
+            
+            double rms = Math.Sqrt((double)sumSquares / sampleCount);
+            
+            // Consider it silence if RMS is below threshold (adjust as needed)
+            return rms < 500; // Threshold for 16-bit audio
+        }
 
-            return Math.Sqrt((double)sumSquares / sampleCount);
+        /// <summary>
+        /// Improved word boundary detection that properly respects minimum duration + silence threshold
+        /// </summary>
+        private List<byte[]> DetectWordBoundaries(MemoryStream audioBuffer)
+        {
+            if (_isDisposed)
+                return new List<byte[]>();
+
+            // Try to initialize VAD if not already done
+            bool vadAvailable = EnsureVadInitialized();
+            if (!vadAvailable)
+            {
+                LoggingService.LogMessage("AudioBufferProcessor: VAD not available, using energy-based detection", "AudioBufferProcessor_DetectWordBoundaries");
+            }
+
+            var chunks = new List<byte[]>();
+            var currentChunk = new List<byte>();
+
+            try
+            {
+                audioBuffer.Position = 0;
+                byte[] frameBuffer = new byte[FRAME_SIZE_BYTES];
+                int consecutiveSilenceFrames = 0;
+                int consecutiveVoiceFrames = 0;
+                
+                // Calculate minimum chunk size in bytes based on _minChunkDuration
+                int minChunkSizeBytes = (int)(_minChunkDuration.TotalMilliseconds * _bytesPerMillisecond);
+                
+                // Calculate maximum chunk size in bytes (30 seconds)
+                int maxChunkSizeBytes = (int)(MAX_CHUNK_DURATION_MS * _bytesPerMillisecond);
+                
+                // Calculate silence threshold in frames (20ms per frame)
+                int silenceThresholdFrames = _silenceThresholdMs / 20;
+                
+                // Require at least 2 consecutive voice frames to end silence
+                const int minVoiceFramesToEndSilence = 2;
+
+                System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Min chunk: {minChunkSizeBytes} bytes ({_minChunkDuration.TotalMilliseconds}ms), Max chunk: {maxChunkSizeBytes} bytes ({MAX_CHUNK_DURATION_MS}ms), Silence threshold: {silenceThresholdFrames} frames ({_silenceThresholdMs}ms)");
+
+                while (audioBuffer.Position < audioBuffer.Length - FRAME_SIZE_BYTES && !_isDisposed)
+                {
+                    int bytesRead = audioBuffer.Read(frameBuffer, 0, FRAME_SIZE_BYTES);
+
+                    if (bytesRead == FRAME_SIZE_BYTES)
+                    {
+                        bool hasVoice = false;
+                        
+                        if (vadAvailable && _vad != null)
+                        {
+                            try
+                            {
+                                // Convert to samples for VAD
+                                short[] samples = new short[FRAME_SIZE_SAMPLES];
+                                for (int i = 0; i < FRAME_SIZE_SAMPLES; i++)
+                                {
+                                    samples[i] = BitConverter.ToInt16(frameBuffer, i * 2);
+                                }
+
+                                hasVoice = _vad.HasSpeech(samples);
+                            }
+                            catch (ObjectDisposedException)
+                            {
+                                vadAvailable = false;
+                                System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: VAD disposed during processing");
+                            }
+                            catch (Exception ex)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: VAD error: {ex.Message}");
+                                LoggingService.LogError($"AudioBufferProcessor: VAD error: {ex.Message}", ex, "AudioBufferProcessor_DetectWordBoundaries");
+                                
+                                // Disable VAD for this session if it's consistently failing
+                                vadAvailable = false;
+                                lock (_vadLock)
+                                {
+                                    try
+                                    {
+                                        _vad?.Dispose();
+                                    }
+                                    catch { }
+                                    _vad = null;
+                                    _vadInitialized = false;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Fallback to energy-based detection
+                            hasVoice = !DetectSilenceWithoutVad(frameBuffer);
+                        }
+
+                        // Always add frame to current chunk first
+                        currentChunk.AddRange(frameBuffer);
+
+                        // Update voice and silence counters based on voice activity
+                        if (hasVoice)
+                        {
+                            consecutiveVoiceFrames++;
+                            
+                            // Only reset silence counter if we have enough consecutive voice frames
+                            if (consecutiveVoiceFrames >= minVoiceFramesToEndSilence)
+                            {
+                                consecutiveSilenceFrames = 0;
+                            }
+                        }
+                        else
+                        {
+                            consecutiveVoiceFrames = 0;
+                            consecutiveSilenceFrames++;
+                        }
+
+                        // Check if we should cut the chunk
+                        bool hasMinimumDuration = currentChunk.Count >= minChunkSizeBytes;
+                        bool hasMaximumDuration = currentChunk.Count >= maxChunkSizeBytes;
+                        bool hasSufficientSilence = consecutiveSilenceFrames >= silenceThresholdFrames;
+
+                        // CORRECTED LOGIC: Cut chunk ONLY if:
+                        // (minimum duration is met AND sufficient silence is detected) OR maximum duration is reached
+                        if ((hasMinimumDuration && hasSufficientSilence) || hasMaximumDuration)
+                        {
+                            if (currentChunk.Count > 0)
+                            {
+                                double durationMs = (double)currentChunk.Count / _bytesPerMillisecond;
+                                string cutReason = hasMaximumDuration ? "max duration" : "min duration + silence threshold";
+                                
+                                System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Creating chunk with {currentChunk.Count} bytes (duration: {durationMs:F0}ms) - cut due to {cutReason}");
+                                
+                                chunks.Add(currentChunk.ToArray());
+                                currentChunk.Clear();
+                                consecutiveSilenceFrames = 0;
+                                consecutiveVoiceFrames = 0;
+                            }
+                        }
+                    }
+                }
+
+                // Handle remaining audio - return it to the buffer if it doesn't meet minimum duration
+                if (currentChunk.Count > 0 && !_isDisposed)
+                {
+                    double finalDurationMs = (double)currentChunk.Count / _bytesPerMillisecond;
+                    bool meetsMinimumDuration = currentChunk.Count >= minChunkSizeBytes;
+                    
+                    if (meetsMinimumDuration || chunks.Count == 0)
+                    {
+                        // Create final chunk if it meets minimum duration OR if it's the only audio we have
+                        System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Creating final chunk with {currentChunk.Count} bytes (duration: {finalDurationMs:F0}ms)");
+                        chunks.Add(currentChunk.ToArray());
+                    }
+                    else
+                    {
+                        // Return the remaining audio to the active buffer for future processing
+                        System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Returning {currentChunk.Count} bytes (duration: {finalDurationMs:F0}ms) to buffer - doesn't meet minimum duration");
+                        
+                        lock (_bufferLock)
+                        {
+                            if (!_isDisposed)
+                            {
+                                // Insert the remaining audio at the beginning of the active buffer
+                                byte[] remainingAudio = currentChunk.ToArray();
+                                byte[] existingBuffer = _activeBuffer.ToArray();
+                                
+                                _activeBuffer.SetLength(0);
+                                _activeBuffer.Position = 0;
+                                _activeBuffer.Write(remainingAudio, 0, remainingAudio.Length);
+                                _activeBuffer.Write(existingBuffer, 0, existingBuffer.Length);
+                            }
+                        }
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Created {chunks.Count} chunks from boundary detection");
+            }
+            catch (ObjectDisposedException)
+            {
+                System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Audio buffer disposed during boundary detection");
+                return new List<byte[]>();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"AudioBufferProcessor: Error in DetectWordBoundaries: {ex.Message}");
+                LoggingService.LogError($"AudioBufferProcessor: Error in DetectWordBoundaries: {ex.Message}", ex, "AudioBufferProcessor_DetectWordBoundaries");
+                
+                // Return what we have so far
+                if (currentChunk.Count > 0)
+                {
+                    chunks.Add(currentChunk.ToArray());
+                }
+            }
+
+            return chunks;
         }
 
         private async Task ConsumeChunksAsync()
@@ -399,10 +515,9 @@ namespace ForensicWhisperDeskZH.Audio
                         }
                     }
                 }
-                catch (OperationCanceledException ex)
+                catch (OperationCanceledException)
                 {
                     System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Consumer task cancelled");
-                    LoggingService.LogError("AudioBufferProcessor: Consumer task cancelled", ex, "AudioBufferProcessor_ConsumeChunksAsync");
                     break;
                 }
                 catch (Exception ex)
@@ -422,11 +537,13 @@ namespace ForensicWhisperDeskZH.Audio
             {
                 System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Disposing...");
 
+                _isDisposed = true;
+                
                 _chunkTimer?.Dispose();
                 _cts?.Cancel();
                 _cts?.Dispose();
                 _chunkAvailableSemaphore?.Dispose();
-                _vad?.Dispose(); // Dispose VAD if it was initialized
+                _vad?.Dispose();
 
                 // Return buffers to pool
                 _streamPool.ReturnStream(_activeBuffer);
@@ -438,7 +555,6 @@ namespace ForensicWhisperDeskZH.Audio
                     chunk?.Dispose();
                 }
 
-                _isDisposed = true;
                 System.Diagnostics.Debug.WriteLine("AudioBufferProcessor: Disposed");
             }
         }

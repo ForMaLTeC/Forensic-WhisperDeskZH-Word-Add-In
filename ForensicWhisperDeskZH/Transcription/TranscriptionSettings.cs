@@ -27,15 +27,15 @@ namespace ForensicWhisperDeskZH.Transcription
         /// Gets or sets the duration of each audio chunk processed by the transcription engine.
         /// Default is 3 seconds.
         /// </summary>
-        public TimeSpan ChunkDuration
+        public TimeSpan minChunkDuration
         {
-            get => _chunkDuration;
+            get => _minChunkDuration;
             set
             {
-                _chunkDuration = value;
+                _minChunkDuration = value;
             }
         }
-        private TimeSpan _chunkDuration = TimeSpan.FromSeconds(3);
+        private TimeSpan _minChunkDuration = TimeSpan.FromSeconds(5);
 
         /// <summary>
         /// Gets or sets the audio wave format for recording and processing.
@@ -83,12 +83,6 @@ namespace ForensicWhisperDeskZH.Transcription
         public bool UseGreedyStrategy { get; set; } = false;
 
         /// <summary>
-        /// Gets or sets whether to automatically add a period at the end of paragraphs.
-        /// Default is false.
-        /// </summary>
-        public bool EndParagraphWithPeriod { get; set; } = false;
-
-        /// <summary>
         /// Gets or sets the file path to the Whisper model.
         /// Default is "ggml-turbo.bin".
         /// </summary>
@@ -100,18 +94,6 @@ namespace ForensicWhisperDeskZH.Transcription
         /// Default is LargeV3Turbo.
         /// </summary>
         public GgmlType ModelType { get; set; } = GgmlType.LargeV3Turbo;
-
-        /// <summary>
-        /// Gets or sets whether to automatically capitalize the first letter of transcribed text.
-        /// Default is false.
-        /// </summary>
-        public bool CapitalizeFirstLetter { get; set; } = false;
-
-        /// <summary>
-        /// Gets or sets whether to automatically add punctuation to transcribed text.
-        /// Default is false.
-        /// </summary>
-        public bool AutoPunctuation { get; set; } = false;
 
         /// <summary>
         /// Gets a new instance of TranscriptionSettings with default values.
@@ -126,17 +108,26 @@ namespace ForensicWhisperDeskZH.Transcription
         public void ResetTranscriptionSettings()
         {
             InsertionInterval = TimeSpan.FromMilliseconds(100);
-            SilenceThreshold = TimeSpan.FromSeconds(500);
-            ChunkDuration = TimeSpan.FromSeconds(3);
+            SilenceThreshold = TimeSpan.FromMilliseconds(500);
+            minChunkDuration = TimeSpan.FromSeconds(3);
             WaveFormat = new WaveFormat(16000, 16, 1);
             Threads = Environment.ProcessorCount;
             TranslateToEnglish = false;
             Temperature = 0.0f;
             BeamSize = 5;
             UseGreedyStrategy = false;
-            EndParagraphWithPeriod = false;
-            CapitalizeFirstLetter = false;
-            AutoPunctuation = false;
         }
+
+        /// <summary>
+        /// Gets or sets whether to apply German capitalization rules for nouns.
+        /// Default is true when language is German.
+        /// </summary>
+        public bool ApplyGermanCapitalization { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the path to German dictionary files for spell checking.
+        /// Default is "Dictionaries/de_DE".
+        /// </summary>
+        public string GermanDictionaryPath { get; set; } = "Dictionaries/de_DE";
     }
 }
