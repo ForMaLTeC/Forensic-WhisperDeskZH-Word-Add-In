@@ -10,7 +10,6 @@ namespace ForensicWhisperDeskZH.Transcription
         public string Text { get; }
         public System.TimeSpan Start { get; }
         public TimeSpan End { get; }
-        public string SessionId { get; }
 
         public TranscriptionSegment(string text, TimeSpan start, TimeSpan end)
         {

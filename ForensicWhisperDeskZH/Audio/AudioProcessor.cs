@@ -20,6 +20,7 @@ namespace ForensicWhisperDeskZH.Audio
         private AudioBufferProcessor _audioProcessor;
         private bool _isCapturing = false;
         private bool _isDisposed = false;
+        private MicrophoneDevice _selectedDevice;
         #endregion
 
         #region Events
@@ -39,6 +40,11 @@ namespace ForensicWhisperDeskZH.Audio
         /// Gets whether audio capture is currently active
         /// </summary>
         public bool IsCapturing => _isCapturing;
+
+        /// <summary>
+        /// Gets information about the currently selected audio device
+        /// </summary>
+        public MicrophoneDevice SelectedDevice => _selectedDevice;
         #endregion
 
         #region Constructor
@@ -55,7 +61,7 @@ namespace ForensicWhisperDeskZH.Audio
 
         #region Public Methods
         /// <summary>
-        /// Starts audio capture from the specified device
+        /// Starts audio capture from the specified device number (legacy method)
         /// </summary>
         /// <param name="deviceNumber">Audio device number to capture from</param>
         public void StartCapture(int deviceNumber = 0)
@@ -67,6 +73,9 @@ namespace ForensicWhisperDeskZH.Audio
 
             try
             {
+                // Create a temporary MicrophoneDevice for backward compatibility
+                _selectedDevice = new MicrophoneDevice(deviceNumber, $"Device {deviceNumber}");
+                
                 CreateAudioCapture(deviceNumber);
                 
                 // Start audio processing and capture
@@ -76,10 +85,48 @@ namespace ForensicWhisperDeskZH.Audio
 
                 LoggingService.LogMessage($"AudioProcessor: Started capture on device {deviceNumber}", "AudioProcessor_StartCapture", true);
             }
-            
             catch (Exception ex)
             {
                 _isCapturing = false;
+                OnAudioError(new ErrorEventArgs(ex));
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Starts audio capture from the specified MicrophoneDevice with enhanced validation
+        /// </summary>
+        /// <param name="device">MicrophoneDevice to capture from</param>
+        public void StartCapture(MicrophoneDevice device)
+        {
+            if (device == null)
+                throw new ArgumentNullException(nameof(device));
+
+            ThrowIfDisposed();
+
+            if (_isCapturing)
+                return;
+
+            try
+            {
+                _selectedDevice = device;
+                
+                LoggingService.LogMessage($"AudioProcessor: Starting capture with device: {device.Name} (Index: {device.DeviceNumber}, ID: {device.DeviceId})", "AudioProcessor_StartCapture", true);
+                
+                CreateAudioCaptureFromDevice(device);
+                
+                // Start audio processing and capture
+                _audioProcessor.Start();
+                _audioCapture.StartCapture();
+                _isCapturing = true;
+
+                LoggingService.LogMessage($"AudioProcessor: Successfully started capture on device: {device.Name}", "AudioProcessor_StartCapture", true);
+            }
+            catch (Exception ex)
+            {
+                _isCapturing = false;
+                string errorMessage = $"Failed to start capture on device: {device.Name} (Index: {device.DeviceNumber})";
+                LoggingService.LogError(errorMessage, ex, "AudioProcessor_StartCapture");
                 OnAudioError(new ErrorEventArgs(ex));
                 throw;
             }
@@ -99,15 +146,52 @@ namespace ForensicWhisperDeskZH.Audio
             {
                 _isCapturing = false;
 
+                string deviceInfo = _selectedDevice != null ? $"device: {_selectedDevice.Name}" : "current device";
+                LoggingService.LogMessage($"AudioProcessor: Stopping capture on {deviceInfo}", "AudioProcessor_StopCapture", true);
+
                 // Stop audio capture and processing
                 _audioCapture?.StopCapture();
                 _audioProcessor?.Stop();
 
-                LoggingService.LogMessage("AudioProcessor: Stopped capture", "AudioProcessor_StopCapture", true);
+                LoggingService.LogMessage("AudioProcessor: Stopped capture successfully", "AudioProcessor_StopCapture", true);
             }
             catch (Exception ex)
             {
+                LoggingService.LogError("Error stopping audio capture", ex, "AudioProcessor_StopCapture");
                 OnAudioError(new ErrorEventArgs(ex));
+            }
+        }
+
+        /// <summary>
+        /// Gets information about the current audio capture device
+        /// </summary>
+        public (string DeviceId, string DeviceName, int DeviceNumber) GetCurrentDeviceInfo()
+        {
+            if (_audioCapture is NAudioCapture naudioCapture)
+            {
+                return naudioCapture.GetDeviceInfo();
+            }
+            
+            return (_selectedDevice?.DeviceId, _selectedDevice?.Name, _selectedDevice?.DeviceNumber ?? -1);
+        }
+
+        /// <summary>
+        /// Validates that the current device selection is still valid
+        /// </summary>
+        public bool ValidateCurrentDevice()
+        {
+            if (_selectedDevice == null) return false;
+            
+            try
+            {
+                // create a new device enumeration to check if our device still exists
+                var provider = new WhisperTranscriptionServiceProvider();
+                return provider.ValidateDeviceSelection(_selectedDevice.DeviceNumber, _selectedDevice.DeviceId, _selectedDevice.Name);
+            }
+            catch (Exception ex)
+            {
+                LoggingService.LogError("Error validating current device", ex, "AudioProcessor_ValidateCurrentDevice");
+                return false;
             }
         }
 
@@ -130,7 +214,7 @@ namespace ForensicWhisperDeskZH.Audio
                 System.Diagnostics.Debug.WriteLine($"AudioProcessor: Writing {audioData.Length} bytes to WAV file");
 
                 // Analyze audio content for debugging
-                AnalyzeAudioSamples(audioData, "Before WAV write");
+                //AnalyzeAudioSamples(audioData, "Before WAV write");
 
                 writer.Write(audioData, 0, audioData.Length);
                 writer.Flush();
@@ -252,12 +336,32 @@ namespace ForensicWhisperDeskZH.Audio
 
         #region Private Methods
         /// <summary>
-        /// Creates and configures audio capture from the specified device
+        /// Creates and configures audio capture from the specified device number (legacy method)
         /// </summary>
         private void CreateAudioCapture(int deviceNumber)
         {
             // Initialize audio capture and processing
             _audioCapture = new NAudioCapture(deviceNumber);
+
+            // Create buffer processor
+            var bytesPerMs = _waveFormat.AverageBytesPerSecond / 1000;
+            _audioProcessor = new AudioBufferProcessor(
+                bytesPerMs,
+                _settings.minChunkDuration,
+                _settings.SilenceThreshold);
+
+            // Connect events
+            _audioCapture.AudioDataAvailable += OnAudioDataAvailable;
+            _audioProcessor.ChunkReady += OnAudioChunkReady;
+        }
+
+        /// <summary>
+        /// Creates and configures audio capture from the specified MicrophoneDevice
+        /// </summary>
+        private void CreateAudioCaptureFromDevice(MicrophoneDevice device)
+        {
+            // Initialize audio capture with enhanced device validation
+            _audioCapture = NAudioCapture.FromMicrophoneDevice(device);
 
             // Create buffer processor
             var bytesPerMs = _waveFormat.AverageBytesPerSecond / 1000;

@@ -20,10 +20,6 @@ namespace ForensicWhisperDeskZH.Transcription
         /// </summary>
         event EventHandler<TranscriptionEventArgs> TranscriptionStopped;
 
-        /// <summary>
-        /// Occurs when a new piece of transcription text is available
-        /// </summary>
-        event EventHandler<TranscriptionResultEventArgs> TranscriptionResult;
 
         /// <summary>
         /// Occurs when an error happens during transcription

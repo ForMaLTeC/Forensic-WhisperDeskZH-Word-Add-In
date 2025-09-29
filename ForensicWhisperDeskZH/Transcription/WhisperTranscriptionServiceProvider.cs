@@ -35,7 +35,6 @@ namespace ForensicWhisperDeskZH.Transcription
                         var micDevice = new MicrophoneDevice(i, device.FriendlyName, device.ID);
                         devices.Add(micDevice);
                         
-                        // Enhanced logging with device ID
                         LoggingService.LogMessage($"Found mic: {device.FriendlyName}\nIndex: {i}\nDevice ID: {device.ID}", "Get Microphones", true);
                         
                         // Special logging for Speechmike devices
@@ -59,12 +58,12 @@ namespace ForensicWhisperDeskZH.Transcription
                 System.Diagnostics.Debug.WriteLine($"Error enumerating WASAPI devices: {ex.Message}");
                 
                 // Enhanced error message with troubleshooting guidance
-                string userMessage = "Audio device enumeration failed. This may be due to:\n" +
-                                   "• Missing or outdated audio drivers\n" +
-                                   "• Insufficient permissions\n" +
-                                   "• Audio devices in exclusive mode\n" +
-                                   "• Professional audio hardware (like Speechmike3) requiring specific drivers\n\n" +
-                                   "Please ensure your audio drivers are up to date and restart the application.";
+                string userMessage = "Die Aufzählung der Audiogeräte ist fehlgeschlagen. Dies kann auf Folgendes zurückzuführen sein:\n" +
+                                   "• Fehlende oder veraltete Audiotreiber\n" +
+                                   "• Unzureichende Berechtigungen\n" +
+                                   "• Audiogeräte im Exklusivmodus\n" +
+                                   "• Professionelle Audio-Hardware (wie Speechmike3), die spezielle Treiber erfordert\n\n" +
+                                   "Stellen Sie sicher, dass Ihre Audiotreiber auf dem neuesten Stand sind und starten Sie die Anwendung neu.";
                 
                 LoggingService.LogError("WASAPI enumeration failed. Cannot provide consistent device numbering.", ex, "GetAvailableMicrophones");
                 throw new InvalidOperationException(userMessage, ex);
@@ -106,10 +105,10 @@ namespace ForensicWhisperDeskZH.Transcription
                 // Fuzzy match if requested
                 if (fuzzyMatch)
                 {
-                    var fuzzyMatch = devices.Find(d => 
+                    var fuzzyResult = devices.Find(d => 
                         d.Name.ToLower().Contains(deviceName.ToLower()) || 
                         deviceName.ToLower().Contains(d.Name.ToLower()));
-                    return fuzzyMatch;
+                    return fuzzyResult;
                 }
                 
                 return null;

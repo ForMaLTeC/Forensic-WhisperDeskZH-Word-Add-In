@@ -2,7 +2,7 @@
 
 on:
   push:
-    branches: [ main, develop]
+    branches: [ main]
     tags: [ 'v*' ]
 
 env:
@@ -14,7 +14,7 @@ env:
   PUBLISH_URL: 'https://your-domain.com/vsto/'
   APPLICATION_NAME: 'ForensicWhisperDeskZH'
   # Define which models to download for production
-  WHISPER_MODELS: 'base, large'
+  WHISPER_MODELS: 'base, large, turbo'
 
 jobs:
   build:

@@ -31,13 +31,12 @@ namespace ForensicWhisperDeskZH.Transcription
         
         private bool _isTranscribing = false;
         private bool _isDisposed = false;
-        private string _sessionId;
         #endregion
 
         #region Events
         public event EventHandler<TranscriptionEventArgs> TranscriptionStarted;
         public event EventHandler<TranscriptionEventArgs> TranscriptionStopped;
-        public event EventHandler<TranscriptionResultEventArgs> TranscriptionResult;
+
         public event EventHandler<ErrorEventArgs> TranscriptionError;
         #endregion
 
@@ -102,7 +101,6 @@ namespace ForensicWhisperDeskZH.Transcription
 
                 _isTranscribing = true;
                 _errorCount = 0;
-                _sessionId = Guid.NewGuid().ToString();
 
                 // Change language if specified
                 if (language != null && language.Name != _settings.Language)
@@ -113,7 +111,7 @@ namespace ForensicWhisperDeskZH.Transcription
                 _cancellationTokenSource = new CancellationTokenSource();
 
                 // Notify listeners that transcription started
-                OnTranscriptionStarted(new TranscriptionEventArgs(_sessionId, string.Empty));
+                OnTranscriptionStarted(new TranscriptionEventArgs(string.Empty));
 
                 // Start the background task to process completed transcriptions
                 Task.Run(() => ProcessCompletedTranscriptionsAsync(textHandler, _cancellationTokenSource.Token));
@@ -379,7 +377,7 @@ namespace ForensicWhisperDeskZH.Transcription
                 }
 
                 // Notify that transcription has stopped
-                OnTranscriptionStopped(new TranscriptionEventArgs(_sessionId, _fullTranscriptBuilder.ToString()));
+                OnTranscriptionStopped(new TranscriptionEventArgs(_fullTranscriptBuilder.ToString()));
             }
             catch (Exception ex)
             {
